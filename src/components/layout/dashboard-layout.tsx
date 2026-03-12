@@ -143,7 +143,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                     </div>
                                     <div>
                                         <h1 className="text-xl font-bold tracking-tight">ATLAS GSE</h1>
-                                        <p className="text-xs text-muted-foreground hidden sm:block">Sistema de Reclutamiento</p>
+                                        <p className="text-xs text-muted-foreground hidden sm:block">Sistema de Reclutamiento v1.1.0-DEPLOY-CHECK</p>
                                     </div>
                                 </div>
                             </div>
