@@ -31,13 +31,17 @@ export async function GET(request: NextRequest) {
     // Construir filtros
     const where: any = {}
 
-    // Filtrar por empresa/equipo según el rol
-    if (user.rol === 'ADMIN') {
-      // Admin ve todos
-    } else if (user.rol === 'GERENTE') {
+    // Multi-tenant scoping: All roles (Admin, Gerente, Reclutador) should be scoped to their empresaId
+    // unless there's a Global Admin role with no empresaId.
+    if (user.empresaId) {
       where.equipo = { empresaId: user.empresaId }
-    } else {
-      // Reclutador solo ve sus candidatos
+    } else if (user.rol !== 'ADMIN') {
+      // If no empresaId and not admin, return empty list for safety
+      return NextResponse.json({ candidatos: [], pagination: { page: 1, limit: filters.limit, total: 0, totalPages: 0 } })
+    }
+
+    if (user.rol === 'RECLUTADOR') {
+      // Reclutador only sees their own candidates WITHIN their team
       where.reclutadorId = user.id
     }
 

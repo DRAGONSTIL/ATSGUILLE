@@ -626,7 +626,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
                         <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={editCandidatoForm.control} name="telefono" render={({ field }) => (
-                        <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Tel{"\u00e9"}fono</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={editCandidatoForm.control} name="linkedin" render={({ field }) => (
                         <FormItem><FormLabel>LinkedIn URL</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
@@ -682,7 +682,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
                       <p className="font-medium">{selectedCandidato.email}</p>
                     </div>
                     <div>
-                      <Label className="text-muted-foreground">Teléfono</Label>
+                      <Label className="text-muted-foreground">Tel{"\u00e9"}fono</Label>
                       <p className="font-medium">{selectedCandidato.telefono || 'No registrado'}</p>
                     </div>
                     <div>
@@ -858,7 +858,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
 
                 <FormField control={newCandidatoForm.control} name="telefono" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Teléfono</FormLabel>
+                    <FormLabel>Tel{"\u00e9"}fono</FormLabel>
                     <FormControl><Input {...field} value={field.value || ''} /></FormControl>
                     <FormMessage />
                   </FormItem>

@@ -5,7 +5,9 @@ export async function findCandidateForRead(ctx: TenantBoundContext, candidateId:
   return db.candidato.findFirst({
     where: {
       id: candidateId,
+      // Ensure the candidate belongs to the same empresa as the requester
       equipo: ctx.tenantId ? { empresaId: ctx.tenantId } : undefined,
+      // Reclutadores are further restricted to their assigned candidates
       ...(ctx.role === 'RECLUTADOR' ? { reclutadorId: ctx.userId } : {}),
     },
     include: {
