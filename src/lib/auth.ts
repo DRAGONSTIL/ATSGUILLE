@@ -240,7 +240,7 @@ async function seedStarterData(empresaId: string, equipoId: string, userId: stri
   await Promise.all([
     db.actividad.create({
       data: {
-        tipo: 'CREAR_CANDIDATO',
+        tipo: 'CREAR_CANDIDATO' as any,
         descripcion: `${candidatos[0].nombre} ${candidatos[0].apellido} registrado como candidato`,
         entidad: 'candidato',
         entidadId: createdCandidatos[0].id,
@@ -250,7 +250,7 @@ async function seedStarterData(empresaId: string, equipoId: string, userId: stri
     }),
     db.actividad.create({
       data: {
-        tipo: 'CAMBIO_ESTATUS',
+        tipo: 'CAMBIO_ESTATUS' as any,
         descripcion: `${candidatos[7].nombre} ${candidatos[7].apellido} fue contratado`,
         entidad: 'candidato',
         entidadId: createdCandidatos[7].id,
@@ -260,7 +260,7 @@ async function seedStarterData(empresaId: string, equipoId: string, userId: stri
     }),
     db.actividad.create({
       data: {
-        tipo: 'CAMBIO_ESTATUS',
+        tipo: 'CAMBIO_ESTATUS' as any,
         descripcion: `${candidatos[4].nombre} ${candidatos[4].apellido} pasó a etapa de entrevista`,
         entidad: 'candidato',
         entidadId: createdCandidatos[4].id,
