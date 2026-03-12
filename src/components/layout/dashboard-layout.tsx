@@ -18,11 +18,12 @@ import { CommandPalette } from '@/components/atlas/command-palette'
 import {
     Menu, Building2, Search, Sun, Moon, ChevronDown, Settings, LogOut,
     LayoutDashboard, Kanban, Briefcase, Users, Calendar, StickyNote, Mail, ClipboardList, FileBarChart, Target, Shield,
-    Plus, Command
+    Command
 } from 'lucide-react'
 import { useUIStore } from '@/lib/store'
 import { useShallow } from 'zustand/react/shallow'
 import { useGlobalDialogs } from '@/components/layout/global-dialogs'
+// Note: useGlobalDialogs is still needed for the new candidate dialog in other places
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { data: session, status } = useSession()
@@ -67,7 +68,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         ...(isPrivilegedUser ? [{ id: 'admin', href: '/admin', label: 'Admin', icon: Shield, description: 'Configuración avanzada' }] : []),
     ]
 
-    const activeNav = navItems.find((item) => item.href === pathname) || navItems[0]
+
 
     useEffect(() => {
         const handler = (event: KeyboardEvent) => {
@@ -265,24 +266,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                             </Card>
                         </aside>
 
-                        <section className="space-y-4 min-w-0">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <p className="text-xs uppercase tracking-tight text-muted-foreground">ATLAS GSE</p>
-                                    <h2 className="text-xl font-semibold tracking-tight">{activeNav.label || 'Dashboard'}</h2>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Button onClick={() => setIsNewCandidatoDialogOpen(true)}>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        <span className="hidden sm:inline">Nuevo</span> Candidato
-                                    </Button>
-                                    <Button variant="outline" onClick={() => setCommandPaletteOpen(true)}>
-                                        <Command className="h-4 w-4 mr-2" />
-                                        <span className="hidden sm:inline">Command</span> Palette
-                                    </Button>
-                                </div>
-                            </div>
-
+                        <section className="min-w-0">
                             {children}
                         </section>
                     </div>
