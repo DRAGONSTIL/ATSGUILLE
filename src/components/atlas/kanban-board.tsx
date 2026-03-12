@@ -2,33 +2,18 @@
 
 import { useState, useMemo } from 'react'
 import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  DragOverEvent,
-  closestCorners,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
+  DndContext, DragEndEvent, DragOverlay, DragStartEvent, DragOverEvent,
+  closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, useDroppable,
 } from '@dnd-kit/core'
 import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
+  SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Briefcase, Calendar, GripVertical } from 'lucide-react'
+import { Briefcase, Calendar, GripVertical, Mail } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-// Types
 type EstatusCandidato = 'REGISTRADO' | 'EN_PROCESO' | 'ENTREVISTA' | 'CONTRATADO' | 'RECHAZADO'
 
 interface Candidato {
@@ -51,186 +36,124 @@ interface KanbanBoardProps {
   filtroReclutador?: string | null
 }
 
-// Columnas del Kanban
-const COLUMNAS: { id: EstatusCandidato; titulo: string; color: string }[] = [
-  { id: 'REGISTRADO', titulo: 'Registrado', color: 'bg-slate-500' },
-  { id: 'EN_PROCESO', titulo: 'En Proceso', color: 'bg-amber-500' },
-  { id: 'ENTREVISTA', titulo: 'Entrevista', color: 'bg-teal-500' },
-  { id: 'CONTRATADO', titulo: 'Contratado', color: 'bg-green-500' },
-  { id: 'RECHAZADO', titulo: 'Rechazado', color: 'bg-red-500' },
+const COLUMNAS: { id: EstatusCandidato; titulo: string; color: string; hex: string; bg: string }[] = [
+  { id: 'REGISTRADO', titulo: 'Registrado', color: 'text-slate-400', hex: '#94A3B8', bg: 'bg-slate-500/10' },
+  { id: 'EN_PROCESO', titulo: 'En Proceso', color: 'text-amber-400', hex: '#F59E0B', bg: 'bg-amber-500/10' },
+  { id: 'ENTREVISTA', titulo: 'Entrevista', color: 'text-blue-400', hex: '#3B82F6', bg: 'bg-blue-500/10' },
+  { id: 'CONTRATADO', titulo: 'Contratado', color: 'text-emerald-400', hex: '#10B981', bg: 'bg-emerald-500/10' },
+  { id: 'RECHAZADO', titulo: 'Rechazado', color: 'text-red-400', hex: '#EF4444', bg: 'bg-red-500/10' },
 ]
 
-// Componente de tarjeta arrastrable con useSortable
-function SortableKanbanCard({
-  candidato,
-  onClick,
-}: {
-  candidato: Candidato
-  onClick: () => void
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: candidato.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
+function KanbanCardContent({ candidato }: { candidato: Candidato }) {
   const initials = `${candidato.nombre[0]}${candidato.apellido[0]}`
-
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      className={`kanban-card cursor-grab active:cursor-grabbing select-none group relative overflow-hidden transition-all duration-300 ${isDragging
-          ? 'shadow-2xl ring-2 ring-primary scale-[1.05] z-50 opacity-90'
-          : 'hover:shadow-md hover:-translate-y-0.5'
-        }`}
-      onClick={(e) => {
-        // Only trigger click if we weren't dragging
-        if (!isDragging) onClick();
-      }}
-      {...attributes}
-      {...listeners}
-    >
-      <CardContent className="p-3 space-y-2">
-        <div className="flex items-start gap-2">
-          <Avatar className="h-8 w-8 text-xs">
-            <AvatarFallback className="bg-primary/20 text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">
-              {candidato.nombre} {candidato.apellido}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">{candidato.email}</p>
-          </div>
-        </div>
-
-        {candidato.vacante && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Briefcase className="h-3 w-3" />
-            <span className="truncate">{candidato.vacante.titulo}</span>
-          </div>
-        )}
-
-        {candidato.reclutador && (
-          <p className="text-xs text-muted-foreground">
-            Reclutador: {candidato.reclutador.name || 'Sin asignar'}
+    <div className="space-y-3">
+      <div className="flex items-start gap-2.5">
+        <Avatar className="h-8 w-8 shrink-0 border border-amber-500/20">
+          <AvatarFallback className="bg-amber-500/10 text-amber-400 text-xs font-bold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm text-foreground truncate leading-tight">
+            {candidato.nombre} {candidato.apellido}
           </p>
-        )}
-
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Calendar className="h-3 w-3" />
-          <span>{format(new Date(candidato.createdAt), 'dd MMM', { locale: es })}</span>
+          <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+            <Mail className="h-2.5 w-2.5 shrink-0" />
+            {candidato.email}
+          </p>
         </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// Componente de tarjeta estática para el overlay
-function KanbanCard({
-  candidato,
-  onClick,
-}: {
-  candidato: Candidato
-  onClick: () => void
-}) {
-  const initials = `${candidato.nombre[0]}${candidato.apellido[0]}`
-
-  return (
-    <Card className="kanban-card cursor-grab shadow-2xl ring-2 ring-primary scale-[1.05] rotate-2 transition-transform duration-200">
-      <CardContent className="p-3 space-y-2">
-        <div className="flex items-start gap-2">
-          <Avatar className="h-8 w-8 text-xs">
-            <AvatarFallback className="bg-primary/20 text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">
-              {candidato.nombre} {candidato.apellido}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">{candidato.email}</p>
-          </div>
-        </div>
-
-        {candidato.vacante && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Briefcase className="h-3 w-3" />
-            <span className="truncate">{candidato.vacante.titulo}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Calendar className="h-3 w-3" />
-          <span>{format(new Date(candidato.createdAt), 'dd MMM', { locale: es })}</span>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// Componente de columna con droppable
-function KanbanColumn({
-  id,
-  titulo,
-  color,
-  candidatos,
-  onSelectCandidato,
-  isOver,
-}: {
-  id: EstatusCandidato
-  titulo: string
-  color: string
-  candidatos: Candidato[]
-  onSelectCandidato: (id: string) => void
-  isOver: boolean
-}) {
-  const { setNodeRef } = useDroppable({
-    id: id,
-  })
-
-  return (
-    <div className="flex-shrink-0 w-80">
-      <div className="sticky top-0 z-10 flex items-center gap-2 mb-3 bg-background/95 backdrop-blur py-2">
-        <div className={`w-3 h-3 rounded-full ${color}`} />
-        <h3 className="font-semibold text-sm">{titulo}</h3>
-        <Badge variant="secondary" className="ml-auto">
-          {candidatos.length}
-        </Badge>
       </div>
 
-      <div
-        ref={setNodeRef}
-        className={`kanban-column space-y-2 overflow-y-auto max-h-[calc(100vh-300px)] pr-1 p-2 rounded-xl transition-all duration-300 ${isOver
-            ? 'bg-primary/5 ring-2 ring-primary/50 ring-dashed scale-[1.01]'
-            : 'border bg-muted/10'
-          }`}
+      {candidato.vacante && (
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-2 py-1">
+          <Briefcase className="h-3 w-3 shrink-0 text-amber-400/60" />
+          <span className="truncate">{candidato.vacante.titulo}</span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground/70">
+        <div className="flex items-center gap-1">
+          <Calendar className="h-2.5 w-2.5" />
+          {format(new Date(candidato.createdAt), 'dd MMM', { locale: es })}
+        </div>
+        {candidato.reclutador?.name && (
+          <span className="truncate max-w-[80px]">{candidato.reclutador.name}</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SortableKanbanCard({ candidato, onClick }: { candidato: Candidato; onClick: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: candidato.id })
+
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }
+
+  return (
+    <div ref={setNodeRef} style={style}
+      className={`kanban-card luxury-card p-3.5 select-none group transition-all cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40 scale-95' : ''}`}
+      onClick={() => { if (!isDragging) onClick() }}
+      {...attributes} {...listeners}
+    >
+      <KanbanCardContent candidato={candidato} />
+      {/* Drag handle indicator */}
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-30 transition-opacity">
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    </div>
+  )
+}
+
+function KanbanCardOverlay({ candidato }: { candidato: Candidato }) {
+  return (
+    <div className="luxury-card p-3.5 rotate-2 scale-105 shadow-2xl border-amber-500/30"
+      style={{ boxShadow: '0 25px 50px hsl(0 0% 0% / 0.6), 0 0 0 1px hsl(43 96% 56% / 0.2)' }}>
+      <KanbanCardContent candidato={candidato} />
+    </div>
+  )
+}
+
+function KanbanColumnComp({ id, titulo, color, hex, bg, candidatos, onSelectCandidato, isOver }: {
+  id: EstatusCandidato; titulo: string; color: string; hex: string; bg: string
+  candidatos: Candidato[]; onSelectCandidato: (id: string) => void; isOver: boolean
+}) {
+  const { setNodeRef } = useDroppable({ id })
+
+  return (
+    <div className="shrink-0 w-72">
+      {/* Column header */}
+      <div className="sticky top-0 z-10 mb-3 px-1">
+        <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border ${isOver ? 'border-amber-500/30 bg-amber-500/5' : 'border-border/50 bg-card/60'} backdrop-blur transition-all`}>
+          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: hex, boxShadow: `0 0 8px ${hex}60` }} />
+          <h3 className={`font-semibold text-sm ${color}`}>{titulo}</h3>
+          <div className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold"
+            style={{ background: `${hex}20`, color: hex }}>
+            {candidatos.length}
+          </div>
+        </div>
+      </div>
+
+      {/* Column body */}
+      <div ref={setNodeRef}
+        className={`kanban-column space-y-2 overflow-y-auto max-h-[calc(100vh-280px)] p-2 rounded-xl transition-all duration-200 ${isOver
+          ? 'bg-amber-500/5 ring-2 ring-amber-500/25 ring-dashed'
+          : 'bg-muted/10 border border-border/30'
+        }`}
       >
-        <SortableContext items={candidatos.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={candidatos.map(c => c.id)} strategy={verticalListSortingStrategy}>
           {candidatos.map((candidato) => (
-            <SortableKanbanCard
-              key={candidato.id}
-              candidato={candidato}
-              onClick={() => onSelectCandidato(candidato.id)}
-            />
+            <SortableKanbanCard key={candidato.id} candidato={candidato}
+              onClick={() => onSelectCandidato(candidato.id)} />
           ))}
         </SortableContext>
 
         {candidatos.length === 0 && (
-          <div className={`border-2 border-dashed rounded-lg p-6 text-center text-muted-foreground text-sm ${isOver ? 'border-primary bg-primary/5' : ''
-            }`}>
-            {isOver ? 'Soltar aquí' : 'Sin candidatos'}
+          <div className={`rounded-xl p-6 text-center text-xs text-muted-foreground border-2 border-dashed transition-colors ${isOver
+            ? 'border-amber-500/40 bg-amber-500/5 text-amber-400'
+            : 'border-border/30'
+          }`}>
+            {isOver ? '✦ Soltar aquí' : 'Sin candidatos'}
           </div>
         )}
       </div>
@@ -238,131 +161,63 @@ function KanbanColumn({
   )
 }
 
-// Componente principal
-export function KanbanBoard({
-  candidatos,
-  onStatusChange,
-  onSelectCandidato,
-  filtroVacante,
-  filtroReclutador,
-}: KanbanBoardProps) {
+export function KanbanBoard({ candidatos, onStatusChange, onSelectCandidato, filtroVacante, filtroReclutador }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 10,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
-  // Filtrar candidatos
   const candidatosFiltrados = useMemo(() => {
-    let filtered = candidatos
-
-    if (filtroVacante) {
-      filtered = filtered.filter((c) => c.vacante?.id === filtroVacante)
-    }
-
-    if (filtroReclutador) {
-      filtered = filtered.filter((c) => c.reclutador?.id === filtroReclutador)
-    }
-
-    return filtered
+    let f = candidatos
+    if (filtroVacante) f = f.filter(c => c.vacante?.id === filtroVacante)
+    if (filtroReclutador) f = f.filter(c => c.reclutador?.id === filtroReclutador)
+    return f
   }, [candidatos, filtroVacante, filtroReclutador])
 
-  // Agrupar por estatus
   const candidatosPorEstatus = useMemo(() => {
-    const grouped: Record<EstatusCandidato, Candidato[]> = {
-      REGISTRADO: [],
-      EN_PROCESO: [],
-      ENTREVISTA: [],
-      CONTRATADO: [],
-      RECHAZADO: [],
-    }
-
-    candidatosFiltrados.forEach((candidato) => {
-      grouped[candidato.estatus].push(candidato)
-    })
-
+    const grouped: Record<EstatusCandidato, Candidato[]> = { REGISTRADO: [], EN_PROCESO: [], ENTREVISTA: [], CONTRATADO: [], RECHAZADO: [] }
+    candidatosFiltrados.forEach(c => grouped[c.estatus].push(c))
     return grouped
   }, [candidatosFiltrados])
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-  }
-
-  const handleDragOver = (event: DragOverEvent) => {
-    setOverId(event.over?.id as string || null)
-  }
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    setActiveId(null)
-    setOverId(null)
-
+  const handleDragStart = (e: DragStartEvent) => setActiveId(e.active.id as string)
+  const handleDragOver = (e: DragOverEvent) => setOverId(e.over?.id as string || null)
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e
+    setActiveId(null); setOverId(null)
     if (!over) return
-
-    const candidatoId = active.id as string
-    const candidato = candidatos.find((c) => c.id === candidatoId)
+    const candidato = candidatos.find(c => c.id === active.id)
     if (!candidato) return
-
-    const overId = over.id as string
-    const columnas = new Set(COLUMNAS.map((c) => c.id))
-
+    const columnaIds = new Set(COLUMNAS.map(c => c.id))
     let nuevoEstatus: EstatusCandidato | null = null
-
-    if (columnas.has(overId as EstatusCandidato)) {
-      nuevoEstatus = overId as EstatusCandidato
+    if (columnaIds.has(over.id as EstatusCandidato)) {
+      nuevoEstatus = over.id as EstatusCandidato
     } else {
-      const candidatoObjetivo = candidatos.find((c) => c.id === overId)
-      if (candidatoObjetivo) {
-        nuevoEstatus = candidatoObjetivo.estatus
-      }
+      const objetivo = candidatos.find(c => c.id === over.id)
+      if (objetivo) nuevoEstatus = objetivo.estatus
     }
-
-    if (nuevoEstatus && candidato.estatus !== nuevoEstatus) {
-      onStatusChange(candidatoId, nuevoEstatus)
-    }
+    if (nuevoEstatus && candidato.estatus !== nuevoEstatus) onStatusChange(candidato.id, nuevoEstatus)
   }
 
-  const activeCandidato = activeId
-    ? candidatos.find((c) => c.id === activeId)
-    : null
+  const activeCandidato = activeId ? candidatos.find(c => c.id === activeId) : null
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {COLUMNAS.map((columna) => (
-          <KanbanColumn
-            key={columna.id}
-            id={columna.id}
-            titulo={columna.titulo}
-            color={columna.color}
-            candidatos={candidatosPorEstatus[columna.id]}
+    <DndContext sensors={sensors} collisionDetection={closestCorners}
+      onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+      <div className="flex gap-4 overflow-x-auto pb-6 min-h-[500px]">
+        {COLUMNAS.map(col => (
+          <KanbanColumnComp key={col.id} {...col}
+            candidatos={candidatosPorEstatus[col.id]}
             onSelectCandidato={onSelectCandidato}
-            isOver={overId === columna.id}
+            isOver={overId === col.id}
           />
         ))}
       </div>
-
-      <DragOverlay>
-        {activeCandidato && (
-          <KanbanCard
-            candidato={activeCandidato}
-            onClick={() => onSelectCandidato(activeCandidato.id)}
-          />
-        )}
+      <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
+        {activeCandidato && <KanbanCardOverlay candidato={activeCandidato} />}
       </DragOverlay>
     </DndContext>
   )

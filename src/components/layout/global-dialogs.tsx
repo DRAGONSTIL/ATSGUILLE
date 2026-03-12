@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useUIStore } from '@/lib/store'
 import { useDashboardData } from '@/components/layout/dashboard-context'
-import { Loader2, UserX, RefreshCw } from 'lucide-react'
+import { Loader2, UserX, RefreshCw, User, Briefcase, Link2, StickyNote, DollarSign } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'
 import { Label } from '@/components/ui/label'
@@ -823,156 +823,208 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
 
       {/* New Candidato Dialog */}
       <Sheet open={isNewCandidatoDialogOpen} onOpenChange={setIsNewCandidatoDialogOpen}>
-        <SheetContent className="w-full sm:max-w-xl md:max-w-2xl max-h-screen overflow-y-auto sm:border-l">
-          <SheetHeader className="pb-6 border-b mb-6">
-            <SheetTitle>Nuevo Candidato</SheetTitle>
+        <SheetContent className="w-full sm:max-w-2xl md:max-w-3xl flex flex-col h-full sm:border-l p-0">
+          {/* Header */}
+          <SheetHeader className="px-6 pt-6 pb-5 border-b shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <User className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <SheetTitle className="text-xl">Nuevo Candidato</SheetTitle>
+                <p className="text-sm text-muted-foreground mt-0.5">Completa los campos para registrar un nuevo candidato</p>
+              </div>
+            </div>
           </SheetHeader>
 
-          <Form {...(newCandidatoForm as any)}>
-            <form onSubmit={newCandidatoForm.handleSubmit(handleCreateCandidato)} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField control={newCandidatoForm.control} name="nombre" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre *</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={newCandidatoForm.control} name="apellido" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Apellido *</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto">
+            <Form {...(newCandidatoForm as any)}>
+              <form id="new-candidato-form" onSubmit={newCandidatoForm.handleSubmit(handleCreateCandidato)}>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField control={newCandidatoForm.control} name="email" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email *</FormLabel>
-                    <FormControl><Input type="email" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                {/* Section: Información Personal */}
+                <div className="px-6 py-5 border-b">
+                  <div className="flex items-center gap-2 mb-4">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Información Personal</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField control={newCandidatoForm.control} name="nombre" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nombre <span className="text-destructive">*</span></FormLabel>
+                        <FormControl><Input placeholder="Ej: Juan" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={newCandidatoForm.control} name="apellido" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Apellido <span className="text-destructive">*</span></FormLabel>
+                        <FormControl><Input placeholder="Ej: García" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={newCandidatoForm.control} name="email" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
+                        <FormControl><Input type="email" placeholder="correo@ejemplo.com" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={newCandidatoForm.control} name="telefono" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tel{"\u00e9"}fono</FormLabel>
+                        <FormControl><Input placeholder="+52 55 1234 5678" {...field} value={field.value || ''} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
 
-                <FormField control={newCandidatoForm.control} name="telefono" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tel{"\u00e9"}fono</FormLabel>
-                    <FormControl><Input {...field} value={field.value || ''} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
+                {/* Section: Perfil Laboral */}
+                <div className="px-6 py-5 border-b">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Perfil Laboral</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField control={newCandidatoForm.control} name="fuente" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fuente de Reclutamiento</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger><SelectValue placeholder="¿Dónde encontramos al candidato?" /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="LINKEDIN">LinkedIn</SelectItem>
+                            <SelectItem value="OCC">OCC</SelectItem>
+                            <SelectItem value="COMPUTRABAJO">Computrabajo</SelectItem>
+                            <SelectItem value="INDEED">Indeed</SelectItem>
+                            <SelectItem value="REFERIDO">Referido</SelectItem>
+                            <SelectItem value="AGENCIA">Agencia</SelectItem>
+                            <SelectItem value="FERIA_EMPLEO">Feria de Empleo</SelectItem>
+                            <SelectItem value="UNIVERSIDAD">Universidad</SelectItem>
+                            <SelectItem value="RED_SOCIAL">Red Social</SelectItem>
+                            <SelectItem value="OTRO">Otro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField control={newCandidatoForm.control} name="fuente" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fuente</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormField control={newCandidatoForm.control} name="vacanteId" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vacante</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Asignar a vacante..." /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="__none__">Sin vacante específica</SelectItem>
+                            {vacantes.filter((v: any) => v.estatus === 'PUBLICADA').map((v: any) => (
+                              <SelectItem key={v.id} value={v.id}>{v.titulo}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    <FormField control={newCandidatoForm.control} name="tags" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Habilidades / Tags</FormLabel>
+                        <FormControl><Input placeholder="javascript, senior, remoto" {...field} value={field.value || ''} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    <FormField control={newCandidatoForm.control} name="salarioEsperado" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Salario Esperado</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="number"
+                              placeholder="MXN mensual"
+                              className="pl-9"
+                              {...field}
+                              value={field.value || ''}
+                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
+
+                {/* Section: Notas */}
+                <div className="px-6 py-5 border-b">
+                  <div className="flex items-center gap-2 mb-4">
+                    <StickyNote className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Notas</h3>
+                  </div>
+                  <FormField control={newCandidatoForm.control} name="notas" render={({ field }) => (
+                    <FormItem>
                       <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                        <Textarea
+                          rows={4}
+                          placeholder="Observaciones sobre el candidato, habilidades destacadas, contexto de la entrevista..."
+                          {...field}
+                          value={field.value || ''}
+                          className="resize-none"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="LINKEDIN">LinkedIn</SelectItem>
-                        <SelectItem value="OCC">OCC</SelectItem>
-                        <SelectItem value="COMPUTRABAJO">Computrabajo</SelectItem>
-                        <SelectItem value="INDEED">Indeed</SelectItem>
-                        <SelectItem value="REFERIDO">Referido</SelectItem>
-                        <SelectItem value="AGENCIA">Agencia</SelectItem>
-                        <SelectItem value="FERIA_EMPLEO">Feria de Empleo</SelectItem>
-                        <SelectItem value="UNIVERSIDAD">Universidad</SelectItem>
-                        <SelectItem value="RED_SOCIAL">Red Social</SelectItem>
-                        <SelectItem value="OTRO">Otro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
 
-                <FormField control={newCandidatoForm.control} name="vacanteId" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vacante</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
-                      <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">Sin vacante específica</SelectItem>
-                        {vacantes.filter((v: any) => v.estatus === 'PUBLICADA').map((v: any) => (
-                          <SelectItem key={v.id} value={v.id}>{v.titulo}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
+                {/* Section: Información Adicional */}
+                <div className="px-6 py-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Link2 className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Links y Redes</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField control={newCandidatoForm.control} name="linkedin" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>LinkedIn</FormLabel>
+                        <FormControl><Input placeholder="https://linkedin.com/in/..." {...field} value={field.value || ''} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
-              <FormField control={newCandidatoForm.control} name="notas" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notas</FormLabel>
-                  <FormControl><Textarea rows={3} {...field} value={field.value || ''} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                    <FormField control={newCandidatoForm.control} name="portfolio" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Portfolio / Sitio Web</FormLabel>
+                        <FormControl><Input placeholder="https://portfolio.com" {...field} value={field.value || ''} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField control={newCandidatoForm.control} name="linkedin" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>LinkedIn URL</FormLabel>
-                    <FormControl><Input placeholder="https://linkedin.com/in/..." {...field} value={field.value || ''} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+              </form>
+            </Form>
+          </div>
 
-                <FormField control={newCandidatoForm.control} name="portfolio" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Portfolio/Sitio Web</FormLabel>
-                    <FormControl><Input placeholder="https://portfolio.com" {...field} value={field.value || ''} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField control={newCandidatoForm.control} name="tags" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tags</FormLabel>
-                    <FormControl><Input placeholder="javascript, senior, remoto" {...field} value={field.value || ''} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-
-                <FormField control={newCandidatoForm.control} name="salarioEsperado" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Salario esperado</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="MXN mensual"
-                        {...field}
-                        value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
-
-              <div className="pb-20" />
-              <SheetFooter className="absolute bottom-0 left-0 w-full p-4 bg-background border-t">
-                <Button type="button" variant="outline" onClick={() => setIsNewCandidatoDialogOpen(false)} disabled={isCreatingCandidato}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isCreatingCandidato}>
-                  {isCreatingCandidato && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Crear Candidato
-                </Button>
-              </SheetFooter>
-            </form>
-          </Form>
+          {/* Sticky Footer */}
+          <SheetFooter className="px-6 py-4 border-t bg-background shrink-0 flex flex-row justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => { setIsNewCandidatoDialogOpen(false); newCandidatoForm.reset() }}
+              disabled={isCreatingCandidato}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" form="new-candidato-form" disabled={isCreatingCandidato}>
+              {isCreatingCandidato && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Crear Candidato
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
 

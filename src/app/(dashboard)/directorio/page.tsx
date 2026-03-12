@@ -25,36 +25,54 @@ export default function DirectorioPage() {
   const busy = updateMutation.isPending || deleteMutation.isPending || bulkMutation.isPending
 
   if (isLoading) {
-    return <div className="p-6 text-sm text-muted-foreground">Cargando candidatos...</div>
+    return (
+      <div className="space-y-4">
+        <div className="h-14 rounded-xl skeleton w-64" />
+        <div className="space-y-2">
+          {[...Array(6)].map((_, i) => <div key={i} className="h-14 rounded-lg skeleton" />)}
+        </div>
+      </div>
+    )
   }
 
   if (isError) {
     return (
-      <div className="p-6 space-y-3">
-        <p className="text-destructive">No se pudo cargar el directorio: {(error as Error).message}</p>
+      <div className="luxury-card p-8 text-center space-y-4">
+        <p className="text-destructive font-semibold">No se pudo cargar el directorio</p>
+        <p className="text-sm text-muted-foreground">{(error as Error).message}</p>
         <Button variant="outline" onClick={() => refetch()}>Reintentar</Button>
       </div>
     )
   }
 
   return (
-    <div className="animate-fade-in space-y-4">
-      <div className="flex items-center justify-between mb-4">
+    <div className="animate-fade-up space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Directorio de Candidatos</h2>
-          <p className="text-muted-foreground">Gestiona y busca candidatos</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">Reclutamiento</span>
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Directorio de Candidatos</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Gestiona, busca y filtra tus candidatos · {candidatos.length} registros</p>
         </div>
-        <Button onClick={() => setIsNewCandidatoDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+        <button onClick={() => setIsNewCandidatoDialogOpen(true)}
+          className="btn-gold flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold h-9">
+          <Plus className="h-4 w-4" />
           Nuevo Candidato
-        </Button>
+        </button>
       </div>
 
       {candidatos.length === 0 ? (
-        <div className="rounded-lg border p-8 text-center space-y-3">
-          <p className="font-medium">No hay candidatos registrados</p>
+        <div className="luxury-card p-12 text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl gradient-gold-subtle border border-amber-500/20 flex items-center justify-center mx-auto">
+            <Plus className="h-7 w-7 text-amber-400" />
+          </div>
+          <p className="font-semibold text-foreground">No hay candidatos registrados</p>
           <p className="text-sm text-muted-foreground">Crea el primer candidato para iniciar el pipeline.</p>
-          <Button onClick={() => setIsNewCandidatoDialogOpen(true)}>Crear candidato</Button>
+          <button onClick={() => setIsNewCandidatoDialogOpen(true)}
+            className="btn-gold px-6 py-2.5 rounded-lg text-sm font-semibold">
+            Crear primer candidato
+          </button>
         </div>
       ) : (
         <CandidatesTable

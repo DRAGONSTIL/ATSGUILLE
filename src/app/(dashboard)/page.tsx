@@ -1,488 +1,357 @@
 'use client'
 
 import { useDashboardData } from '@/components/layout/dashboard-context'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, LineChart, Line, Legend, Area, AreaChart,
+    PieChart, Pie, Cell, Legend, Area, AreaChart,
 } from 'recharts'
-import { Users, UserCheck, Clock, Briefcase, Zap, Award, TrendingUp, BarChart3, PieChartIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import {
+    Users, UserCheck, Clock, Briefcase, Zap, Award, TrendingUp, BarChart3,
+    PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Activity, Sparkles
+} from 'lucide-react'
 import { format, subDays, startOfMonth, endOfMonth, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const CHART_COLORS = ['#d4af37', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
+const CHART_COLORS = ['#F59E0B', '#3B82F6', '#10B981', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#F97316']
+const GOLD = '#F59E0B'
 
 const FUENTE_LABELS: Record<string, string> = {
-    LINKEDIN: 'LinkedIn',
-    OCC: 'OCC',
-    COMPUTRABAJA: 'Computrabajo',
-    COMPUTRABAJO: 'Computrabajo',
-    REFERIDO: 'Referido',
-    AGENCIA: 'Agencia',
-    FERIA_EMPLEO: 'Feria de empleo',
-    UNIVERSIDAD: 'Universidad',
-    RED_SOCIAL: 'Red social',
-    INDEED: 'Indeed',
-    OTRO: 'Otra',
+    LINKEDIN: 'LinkedIn', OCC: 'OCC', COMPUTRABAJA: 'Computrabajo', COMPUTRABAJO: 'Computrabajo',
+    REFERIDO: 'Referido', AGENCIA: 'Agencia', FERIA_EMPLEO: 'Feria', UNIVERSIDAD: 'Universidad',
+    RED_SOCIAL: 'Red Social', INDEED: 'Indeed', OTRO: 'Otra',
+}
+
+const tooltipStyle = {
+    contentStyle: {
+        backgroundColor: 'hsl(222 18% 11%)',
+        border: '1px solid hsl(222 14% 18%)',
+        borderRadius: '12px',
+        boxShadow: '0 20px 40px hsl(0 0% 0% / 0.5)',
+        color: 'hsl(210 20% 95%)',
+        fontSize: '13px',
+    },
+    labelStyle: { color: 'hsl(43 96% 56%)', fontWeight: 600 },
+}
+
+function StatCard({ title, value, icon: Icon, color, badge, sub, trend }: any) {
+    return (
+        <div className="luxury-card p-5 relative overflow-hidden group cursor-pointer">
+            {/* Glow bg */}
+            <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full blur-2xl opacity-20 group-hover:opacity-30 transition-opacity ${color}`} />
+            <div className="relative z-10">
+                <div className="flex items-start justify-between mb-4">
+                    <div className={`p-2.5 rounded-xl ${color} bg-opacity-10`} style={{ background: `${color}15` }}>
+                        <Icon className="h-5 w-5" style={{ color }} />
+                    </div>
+                    {trend !== undefined && (
+                        <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${trend >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                            {trend >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                            {trend >= 0 ? '+' : ''}{trend.toFixed(0)}%
+                        </div>
+                    )}
+                </div>
+                <p className="stat-number text-foreground">{value}</p>
+                <p className="text-sm font-semibold text-foreground mt-1">{title}</p>
+                {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+            </div>
+        </div>
+    )
+}
+
+function SecondaryCard({ title, value, sub, icon: Icon, color }: any) {
+    return (
+        <div className="luxury-card p-5 flex items-center gap-4">
+            <div className="p-3 rounded-xl shrink-0" style={{ background: `${color}15` }}>
+                <Icon className="h-6 w-6" style={{ color }} />
+            </div>
+            <div>
+                <p className="text-xs text-muted-foreground font-medium">{title}</p>
+                <p className="text-xl font-bold text-foreground mt-0.5">{value}</p>
+                {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+            </div>
+        </div>
+    )
 }
 
 export default function DashboardPage() {
     const { candidatos, vacantes, actividadReciente, loading } = useDashboardData()
 
     if (loading) {
-        return <div className="animate-pulse space-y-4">Cargando métricas...</div>
+        return (
+            <div className="space-y-6">
+                {/* Skeleton KPI row */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[...Array(4)].map((_, i) => (
+                        <div key={i} className="luxury-card p-5 h-32 skeleton" />
+                    ))}
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className="luxury-card p-5 h-20 skeleton" />
+                    ))}
+                </div>
+                <div className="grid gap-6 lg:grid-cols-2">
+                    {[...Array(2)].map((_, i) => (
+                        <div key={i} className="luxury-card p-5 h-72 skeleton" />
+                    ))}
+                </div>
+            </div>
+        )
     }
 
-    // Stats calculations
+    // ── Metrics ──────────────────────────────────────────────
     const stats = {
         total: candidatos.length,
         contratados: candidatos.filter((c: any) => c.estatus === 'CONTRATADO').length,
         enProceso: candidatos.filter((c: any) => c.estatus === 'EN_PROCESO' || c.estatus === 'ENTREVISTA').length,
-        rechazados: candidatos.filter((c: any) => c.estatus === 'RECHAZADO').length,
         entrevistas: candidatos.filter((c: any) => c.estatus === 'ENTREVISTA').length,
+        rechazados: candidatos.filter((c: any) => c.estatus === 'RECHAZADO').length,
     }
 
-    // A) Time to hire
     const candidatosContratados = candidatos.filter((c: any) => c.estatus === 'CONTRATADO')
-    let avgTimeToHire = 0
-    if (candidatosContratados.length > 0) {
-        const diasTotales = candidatosContratados.reduce((acc: number, c: any) => {
-            return acc + differenceInDays(new Date(), new Date(c.createdAt))
-        }, 0)
-        avgTimeToHire = Math.round(diasTotales / candidatosContratados.length)
-    }
+    const avgTimeToHire = candidatosContratados.length > 0
+        ? Math.round(candidatosContratados.reduce((acc: number, c: any) =>
+            acc + differenceInDays(new Date(), new Date(c.createdAt)), 0) / candidatosContratados.length)
+        : 0
 
-    // B) Trend data
     const hoy = new Date()
+    const mesActualStart = startOfMonth(hoy)
+    const mesAnteriorStart = startOfMonth(subDays(mesActualStart, 1))
+    const mesAnteriorEnd = endOfMonth(mesAnteriorStart)
+    const candidatosMesActual = candidatos.filter((c: any) => new Date(c.createdAt) >= mesActualStart).length
+    const candidatosMesAnterior = candidatos.filter((c: any) => {
+        const f = new Date(c.createdAt); return f >= mesAnteriorStart && f <= mesAnteriorEnd
+    }).length
+    const porcentajeCambio = candidatosMesAnterior > 0
+        ? ((candidatosMesActual - candidatosMesAnterior) / candidatosMesAnterior) * 100
+        : null
+
+    const candidatosConRating = candidatos.filter((c: any) => c.rating !== null && c.rating !== undefined)
+    const calidadPromedio = candidatosConRating.length > 0
+        ? (candidatosConRating.reduce((a: number, c: any) => a + (c.rating || 0), 0) / candidatosConRating.length).toFixed(1)
+        : 'N/A'
+
+    const tasaConversion = stats.total > 0 ? ((stats.contratados / stats.total) * 100).toFixed(1) : '0'
+
+    // ── Chart data ───────────────────────────────────────────
+    const embudoData = [
+        { name: 'Registrados', value: candidatos.filter((c: any) => c.estatus === 'REGISTRADO').length, fill: '#94A3B8' },
+        { name: 'En Proceso', value: candidatos.filter((c: any) => c.estatus === 'EN_PROCESO').length, fill: '#F59E0B' },
+        { name: 'Entrevista', value: candidatos.filter((c: any) => c.estatus === 'ENTREVISTA').length, fill: '#3B82F6' },
+        { name: 'Contratados', value: candidatos.filter((c: any) => c.estatus === 'CONTRATADO').length, fill: '#10B981' },
+        { name: 'Rechazados', value: candidatos.filter((c: any) => c.estatus === 'RECHAZADO').length, fill: '#EF4444' },
+    ].filter(d => d.value > 0)
+
+    const fuenteData = Object.entries(
+        candidatos.reduce((acc: any, c: any) => { acc[c.fuente] = (acc[c.fuente] || 0) + 1; return acc }, {})
+    ).map(([name, value], i) => ({ name: FUENTE_LABELS[name] || name, value, fill: CHART_COLORS[i % CHART_COLORS.length] }))
+
+    const vacanteCount = candidatos.reduce((acc: any, c: any) => {
+        const key = c.vacante?.titulo || 'Sin asignar'; acc[key] = (acc[key] || 0) + 1; return acc
+    }, {})
+    const vacanteData = Object.entries(vacanteCount)
+        .map(([name, value], i) => ({ name, value, fill: CHART_COLORS[i % CHART_COLORS.length] }))
+        .sort((a: any, b: any) => b.value - a.value).slice(0, 5)
+
     const ultimos7Dias = Array.from({ length: 7 }, (_, i) => {
         const fecha = subDays(hoy, 6 - i)
         return { fecha, nombre: format(fecha, 'EEE', { locale: es }) }
     })
     const trendData = ultimos7Dias.map((dia) => {
-        const candidatosDia = candidatos.filter((c: any) => {
-            const fechaCandidato = new Date(c.createdAt)
-            return (
-                fechaCandidato.getDate() === dia.fecha.getDate() &&
-                fechaCandidato.getMonth() === dia.fecha.getMonth() &&
-                fechaCandidato.getFullYear() === dia.fecha.getFullYear()
-            )
+        const d = candidatos.filter((c: any) => {
+            const f = new Date(c.createdAt)
+            return f.getDate() === dia.fecha.getDate() && f.getMonth() === dia.fecha.getMonth() && f.getFullYear() === dia.fecha.getFullYear()
         })
-        return {
-            name: dia.nombre,
-            candidatos: candidatosDia.length,
-            contrataciones: candidatosDia.filter((c: any) => c.estatus === 'CONTRATADO').length,
-        }
+        return { name: dia.nombre, candidatos: d.length, contrataciones: d.filter((c: any) => c.estatus === 'CONTRATADO').length }
     })
 
-    // C) Comparación mes actual vs mes anterior
-    const mesActualStart = startOfMonth(hoy)
-    const mesAnteriorStart = startOfMonth(subDays(mesActualStart, 1))
-    const mesAnteriorEnd = endOfMonth(mesAnteriorStart)
-
-    const candidatosMesActual = candidatos.filter((c: any) => new Date(c.createdAt) >= mesActualStart).length
-    const candidatosMesAnterior = candidatos.filter((c: any) => {
-        const fecha = new Date(c.createdAt)
-        return fecha >= mesAnteriorStart && fecha <= mesAnteriorEnd
-    }).length
-
-    let porcentajeCambio: number | null = null
-    if (candidatosMesAnterior > 0) {
-        porcentajeCambio = ((candidatosMesActual - candidatosMesAnterior) / candidatosMesAnterior) * 100
-    }
-
-    // E) Calidad promedio
-    const candidatosConRating = candidatos.filter((c: any) => c.rating !== null && c.rating !== undefined)
-    let calidadPromedio = 'N/A'
-    if (candidatosConRating.length > 0) {
-        const promedio = candidatosConRating.reduce((acc: number, c: any) => acc + (c.rating || 0), 0) / candidatosConRating.length
-        calidadPromedio = `${promedio.toFixed(1)}/5`
-    }
-
-    // F) Tasa de Conversión
-    const tasaConversion = stats.total > 0 ? ((stats.contratados / stats.total) * 100).toFixed(1) : '0'
-
-    // Chart data - Embudo
-    const embudoData = [
-        { name: 'Registrados', value: candidatos.filter((c: any) => c.estatus === 'REGISTRADO').length, fill: CHART_COLORS[0] },
-        { name: 'En Proceso', value: candidatos.filter((c: any) => c.estatus === 'EN_PROCESO').length, fill: CHART_COLORS[1] },
-        { name: 'Entrevista', value: candidatos.filter((c: any) => c.estatus === 'ENTREVISTA').length, fill: CHART_COLORS[2] },
-        { name: 'Contratados', value: candidatos.filter((c: any) => c.estatus === 'CONTRATADO').length, fill: CHART_COLORS[3] },
-        { name: 'Rechazados', value: candidatos.filter((c: any) => c.estatus === 'RECHAZADO').length, fill: CHART_COLORS[4] },
-    ].filter((d) => d.value > 0)
-
-    // Chart data - Por fuente
-    const fuenteData = Object.entries(
-        candidatos.reduce((acc: any, c: any) => {
-            acc[c.fuente] = (acc[c.fuente] || 0) + 1
-            return acc
-        }, {})
-    ).map(([name, value], i) => ({ name: FUENTE_LABELS[name] || name, value, fill: CHART_COLORS[i % CHART_COLORS.length] }))
-
-    // Chart data - Vacantes (top 5)
-    const vacanteCount = candidatos.reduce((acc: any, c: any) => {
-        if (c.vacante?.titulo) {
-            acc[c.vacante.titulo] = (acc[c.vacante.titulo] || 0) + 1
-        } else {
-            acc['Sin asignar'] = (acc['Sin asignar'] || 0) + 1
-        }
-        return acc
-    }, {})
-
-    const vacanteData = Object.entries(vacanteCount)
-        .map(([name, value], i) => ({ name, value, fill: CHART_COLORS[i % CHART_COLORS.length] }))
-        .sort((a: any, b: any) => b.value - a.value)
-        .slice(0, 5)
-
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="grid gap-3 md:grid-cols-3">
-                <Card className="hover:shadow-sm transition-shadow"><CardContent className="pt-5"><p className="text-sm font-semibold tracking-tight">Acciones de hoy</p><p className="text-sm text-muted-foreground">Revisar entrevistas pendientes y estatus en pipeline.</p></CardContent></Card>
-                <Card className="hover:shadow-sm transition-shadow"><CardContent className="pt-5"><p className="text-sm font-semibold tracking-tight">Candidatos nuevos</p><p className="text-sm text-muted-foreground">{stats.total} registrados en el periodo actual.</p></CardContent></Card>
-                <Card className="hover:shadow-sm transition-shadow"><CardContent className="pt-5"><p className="text-sm font-semibold tracking-tight">Conversión</p><p className="text-sm text-muted-foreground">{tasaConversion}% de contratación.</p></CardContent></Card>
+        <div className="space-y-6 stagger">
+
+            {/* Page Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <Sparkles className="h-4 w-4 text-amber-400" />
+                        <span className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">Panel Principal</span>
+                    </div>
+                    <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+                    <p className="text-muted-foreground text-sm mt-0.5">
+                        {format(hoy, "EEEE, d 'de' MMMM yyyy", { locale: es })}
+                    </p>
+                </div>
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-xs font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Sistema en línea
+                </div>
             </div>
-            {/* KPI Cards */}
+
+            {/* Primary KPIs */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="relative overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Total Candidatos
-                        </CardTitle>
-                        <div className="p-2 rounded-lg bg-primary/10">
-                            <Users className="h-5 w-5 text-primary" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold">{stats.total}</p>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                            {porcentajeCambio !== null ? (
-                                <>
-                                    {porcentajeCambio >= 0 ? (
-                                        <ArrowUpRight className="h-3 w-3 text-green-500" />
-                                    ) : (
-                                        <ArrowDownRight className="h-3 w-3 text-red-500" />
-                                    )}
-                                    <span className={porcentajeCambio >= 0 ? 'text-green-500' : 'text-red-500'}>
-                                        {porcentajeCambio >= 0 ? '+' : ''}{porcentajeCambio.toFixed(0)}%
-                                    </span>
-                                    <span>vs mes anterior</span>
-                                </>
-                            ) : (
-                                <span className="text-muted-foreground">Sin datos previos</span>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="relative overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Contrataciones
-                        </CardTitle>
-                        <div className="p-2 rounded-lg bg-green-500/10">
-                            <UserCheck className="h-5 w-5 text-green-500" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold text-green-500">{stats.contratados}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {stats.total > 0 ? ((stats.contratados / stats.total) * 100).toFixed(1) : 0}% tasa de conversión
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="relative overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            En Proceso
-                        </CardTitle>
-                        <div className="p-2 rounded-lg bg-amber-500/10">
-                            <Clock className="h-5 w-5 text-amber-500" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold text-amber-500">{stats.enProceso}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {stats.entrevistas} en entrevista
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="relative overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Vacantes Activas
-                        </CardTitle>
-                        <div className="p-2 rounded-lg bg-blue-500/10">
-                            <Briefcase className="h-5 w-5 text-blue-500" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold">
-                            {vacantes.filter((v: any) => v.estatus === 'PUBLICADA').length}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            de {vacantes.length} totales
-                        </p>
-                    </CardContent>
-                </Card>
+                <StatCard title="Total Candidatos" value={stats.total} icon={Users} color="#F59E0B"
+                    trend={porcentajeCambio} sub={porcentajeCambio !== null ? 'vs mes anterior' : 'Sin datos previos'} />
+                <StatCard title="Contrataciones" value={stats.contratados} icon={UserCheck} color="#10B981"
+                    sub={`${tasaConversion}% tasa de conversión`} />
+                <StatCard title="En Proceso" value={stats.enProceso} icon={Clock} color="#F59E0B"
+                    sub={`${stats.entrevistas} en entrevista`} />
+                <StatCard title="Vacantes Activas" value={vacantes.filter((v: any) => v.estatus === 'PUBLICADA').length}
+                    icon={Briefcase} color="#3B82F6" sub={`de ${vacantes.length} totales`} />
             </div>
 
             {/* Secondary KPIs */}
             <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-lg bg-violet-500/10">
-                                <Zap className="h-6 w-6 text-violet-500" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Time to Hire</p>
-                                <p className="text-2xl font-bold">{avgTimeToHire} días</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {avgTimeToHire > 0 ? 'Promedio de contratación' : 'Sin datos suficientes'}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-lg bg-cyan-500/10">
-                                <Award className="h-6 w-6 text-cyan-500" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Calidad Promedio</p>
-                                <p className="text-2xl font-bold">{calidadPromedio}</p>
-                                <p className="text-xs text-muted-foreground">Rating de candidatos</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-lg bg-pink-500/10">
-                                <TrendingUp className="h-6 w-6 text-pink-500" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Tasa de Conversión</p>
-                                <p className="text-2xl font-bold">{tasaConversion}%</p>
-                                <p className="text-xs text-muted-foreground">Contratados / Total</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                <SecondaryCard title="Time to Hire" value={avgTimeToHire > 0 ? `${avgTimeToHire} días` : 'N/A'}
+                    sub={avgTimeToHire > 0 ? 'Promedio de contratación' : 'Sin datos suficientes'}
+                    icon={Zap} color="#8B5CF6" />
+                <SecondaryCard title="Calidad Promedio" value={calidadPromedio !== 'N/A' ? `${calidadPromedio}/5` : 'N/A'}
+                    sub="Rating promedio de candidatos" icon={Award} color="#06B6D4" />
+                <SecondaryCard title="Tasa de Conversión" value={`${tasaConversion}%`}
+                    sub="Contratados / Total" icon={TrendingUp} color="#EC4899" />
             </div>
 
             {/* Charts Row 1 */}
             <div className="grid gap-6 lg:grid-cols-2">
-                {/* Embudo */}
-                <Card className="col-span-1">
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <CardTitle className="flex items-center gap-2">
-                                    <BarChart3 className="h-5 w-5" />
-                                    Embudo de Reclutamiento
-                                </CardTitle>
-                                <CardDescription>Distribución por etapa del proceso</CardDescription>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        {embudoData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={280}>
-                                <BarChart data={embudoData} layout="vertical" margin={{ top: 8, right: 12, left: 12, bottom: 8 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
-                                    <YAxis type="category" dataKey="name" width={110} stroke="hsl(var(--muted-foreground))" />
-                                    <RechartsTooltip
-                                        contentStyle={{
-                                            backgroundColor: 'hsl(var(--card))',
-                                            border: '1px solid hsl(var(--border))',
-                                            borderRadius: '10px',
-                                        }}
-                                    />
-                                    <Bar dataKey="value" radius={[0, 10, 10, 0]}>
-                                        {embudoData.map((entry, index) => (
-                                            <Cell key={`embudo-${index}`} fill={entry.fill} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="h-64 flex items-center justify-center text-muted-foreground">
-                                No hay datos para mostrar
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
 
-                {/* Por Fuente */}
-                <Card className="col-span-1">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <PieChartIcon className="h-5 w-5" />
-                            Fuentes de Candidatos
-                        </CardTitle>
-                        <CardDescription>Origen de los candidatos</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {fuenteData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={280}>
-                                <PieChart>
-                                    <Pie
-                                        data={fuenteData}
-                                        dataKey="value"
-                                        nameKey="name"
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={52}
-                                        outerRadius={96}
-                                        labelLine={false}
-                                    >
-                                        {fuenteData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                                        ))}
-                                    </Pie>
-                                    <RechartsTooltip
-                                        contentStyle={{
-                                            backgroundColor: 'hsl(var(--card))',
-                                            border: '1px solid hsl(var(--border))',
-                                            borderRadius: '8px',
-                                        }}
-                                    />
-                                    <Legend iconType="circle" wrapperStyle={{ paddingTop: 12 }} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="h-64 flex items-center justify-center text-muted-foreground">
-                                No hay datos para mostrar
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                {/* Funnel */}
+                <div className="luxury-card p-5">
+                    <div className="flex items-center gap-2 mb-5">
+                        <BarChart3 className="h-4 w-4 text-amber-400" />
+                        <div>
+                            <h3 className="text-sm font-bold text-foreground">Embudo de Reclutamiento</h3>
+                            <p className="text-xs text-muted-foreground">Distribución por etapa del proceso</p>
+                        </div>
+                    </div>
+                    {embudoData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={260}>
+                            <BarChart data={embudoData} layout="vertical" margin={{ top: 0, right: 8, left: 8, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 14% 16%)" horizontal={false} />
+                                <XAxis type="number" stroke="hsl(220 10% 40%)" tick={{ fontSize: 11 }} />
+                                <YAxis type="category" dataKey="name" width={90} stroke="hsl(220 10% 40%)" tick={{ fontSize: 11 }} />
+                                <RechartsTooltip {...tooltipStyle} />
+                                <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                                    {embudoData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
+                            Sin datos para mostrar
+                        </div>
+                    )}
+                </div>
+
+                {/* Sources */}
+                <div className="luxury-card p-5">
+                    <div className="flex items-center gap-2 mb-5">
+                        <PieChartIcon className="h-4 w-4 text-amber-400" />
+                        <div>
+                            <h3 className="text-sm font-bold text-foreground">Fuentes de Candidatos</h3>
+                            <p className="text-xs text-muted-foreground">Origen de los candidatos registrados</p>
+                        </div>
+                    </div>
+                    {fuenteData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={260}>
+                            <PieChart>
+                                <Pie data={fuenteData} dataKey="value" nameKey="name"
+                                    cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3}>
+                                    {fuenteData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                                </Pie>
+                                <RechartsTooltip {...tooltipStyle} />
+                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: 8 }} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
+                            Sin datos para mostrar
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Charts Row 2 */}
             <div className="grid gap-6 lg:grid-cols-2">
+
                 {/* Top Vacantes */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Top Vacantes por Candidatos</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {vacanteData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={200}>
-                                <BarChart data={vacanteData} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
-                                    <YAxis
-                                        type="category"
-                                        dataKey="name"
-                                        stroke="hsl(var(--muted-foreground))"
-                                        width={150}
-                                    />
-                                    <RechartsTooltip
-                                        contentStyle={{
-                                            backgroundColor: 'hsl(var(--card))',
-                                            border: '1px solid hsl(var(--border))',
-                                            borderRadius: '8px',
-                                        }}
-                                    />
-                                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                                        {vacanteData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="h-48 flex items-center justify-center text-muted-foreground">
-                                No hay vacantes con candidatos
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Trend */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Tendencia Semanal</CardTitle>
-                        <CardDescription>Candidatos y contrataciones por día</CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                <div className="luxury-card p-5">
+                    <div className="mb-5">
+                        <h3 className="text-sm font-bold text-foreground">Top Vacantes por Candidatos</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">Las 5 vacantes con más candidatos</p>
+                    </div>
+                    {vacanteData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={200}>
-                            <AreaChart data={trendData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                                <YAxis stroke="hsl(var(--muted-foreground))" />
-                                <RechartsTooltip
-                                    contentStyle={{
-                                        backgroundColor: 'hsl(var(--card))',
-                                        border: '1px solid hsl(var(--border))',
-                                        borderRadius: '8px',
-                                    }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="candidatos"
-                                    stackId="1"
-                                    stroke={CHART_COLORS[1]}
-                                    fill={CHART_COLORS[1]}
-                                    fillOpacity={0.25}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="contrataciones"
-                                    stackId="2"
-                                    stroke={CHART_COLORS[0]}
-                                    fill={CHART_COLORS[0]}
-                                    fillOpacity={0.45}
-                                />
-                            </AreaChart>
+                            <BarChart data={vacanteData} layout="vertical">
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 14% 16%)" horizontal={false} />
+                                <XAxis type="number" stroke="hsl(220 10% 40%)" tick={{ fontSize: 11 }} />
+                                <YAxis type="category" dataKey="name" width={120} stroke="hsl(220 10% 40%)" tick={{ fontSize: 11 }} />
+                                <RechartsTooltip {...tooltipStyle} />
+                                <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                                    {vacanteData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                                </Bar>
+                            </BarChart>
                         </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Actividad Reciente */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-medium">
-                        Actividad Reciente
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {actividadReciente.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            No hay actividad reciente
-                        </p>
                     ) : (
-                        <div className="space-y-3">
-                            {actividadReciente.map((act: any) => (
-                                <div key={act.id} className="flex gap-3 items-start">
-                                    <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm truncate">{act.descripcion}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {act.usuario?.name || 'Sistema'} · {' '}
-                                            {format(new Date(act.createdAt), 'dd/MM/yyyy HH:mm', { locale: es })}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                            Sin vacantes con candidatos
                         </div>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+
+                {/* Weekly Trend */}
+                <div className="luxury-card p-5">
+                    <div className="mb-5">
+                        <h3 className="text-sm font-bold text-foreground">Tendencia Semanal</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">Candidatos y contrataciones por día</p>
+                    </div>
+                    <ResponsiveContainer width="100%" height={200}>
+                        <AreaChart data={trendData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="gradCandidatos" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="gradContrataciones" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 14% 16%)" />
+                            <XAxis dataKey="name" stroke="hsl(220 10% 40%)" tick={{ fontSize: 11 }} />
+                            <YAxis stroke="hsl(220 10% 40%)" tick={{ fontSize: 11 }} />
+                            <RechartsTooltip {...tooltipStyle} />
+                            <Area type="monotone" dataKey="candidatos" stroke="#3B82F6" strokeWidth={2} fill="url(#gradCandidatos)" name="Candidatos" />
+                            <Area type="monotone" dataKey="contrataciones" stroke="#F59E0B" strokeWidth={2} fill="url(#gradContrataciones)" name="Contrataciones" />
+                            <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: 8 }} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Activity Feed */}
+            <div className="luxury-card p-5">
+                <div className="flex items-center gap-2 mb-5">
+                    <Activity className="h-4 w-4 text-amber-400" />
+                    <h3 className="text-sm font-bold text-foreground">Actividad Reciente</h3>
+                </div>
+                {actividadReciente.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Sin actividad reciente</p>
+                ) : (
+                    <div className="space-y-1">
+                        {actividadReciente.map((act: any, i: number) => (
+                            <div key={act.id} className="flex gap-3 items-start p-2.5 rounded-lg hover:bg-muted/30 transition-colors group">
+                                <div className="mt-1.5 shrink-0">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400/60 group-hover:bg-amber-400 transition-colors" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm text-foreground truncate">{act.descripcion}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        {act.usuario?.name || 'Sistema'} · {format(new Date(act.createdAt), 'dd/MM/yyyy HH:mm', { locale: es })}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
