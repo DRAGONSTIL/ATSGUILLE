@@ -35,17 +35,27 @@ export async function GET(request: NextRequest, props: { params: Promise<{ nexta
   // Re-empaquetamos el contexto de manera síncrona para que NextAuth no explote internamente
   const context = { params }
 
-  // Hardening: si por enrutamiento cae en el catch-all, mantener contrato JSON para NextAuth client.
+  // Manejo de la sesión (donde NextAuth y React colapsan por error de red 500)
   if (tail === 'session') {
     try {
-      return await handler(request, context)
+      const response = await handler(request, context)
+      if (response && response.status >= 500) {
+        return NextResponse.json({}, { status: 401 })
+      }
+      return response
     } catch (error) {
       console.error('nextauth_session_fallback_error', error)
-      return NextResponse.json({}, { status: 200 })
+      return NextResponse.json({}, { status: 401 })
     }
   }
 
-  return handler(request, context)
+  try {
+      return await handler(request, context)
+  } catch(error) {
+      // Fallback de cualquier ruta (ej: /api/auth/providers)
+      console.error('nextauth_generic_error', error)
+      return NextResponse.json({ error: 'Internal Auth Error' }, { status: 401 })
+  }
 }
 
 export async function POST(request: NextRequest, props: { params: Promise<{ nextauth: string[] }> }) {
