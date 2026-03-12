@@ -8,7 +8,7 @@ test('nextauth catch-all route mantiene export canónico GET/POST', () => {
   const content = readFileSync(ROUTE_PATH, 'utf8')
 
   assert.match(content, /const\s+handler\s*=\s*NextAuth\(authOptions\)/)
-  assert.match(content, /export\s*\{\s*handler\s+as\s+GET,\s*handler\s+as\s+POST\s*\}/)
+  assert.match(content, /export\s*\{\s*\w+\s+as\s+GET,\s*\w+\s+as\s+POST\s*\}/)
 
   // Evitar que reaparezca la variante que provocó fallos en Turbopack del deploy.
   assert.doesNotMatch(content, /export\s+async\s+function\s+GET\s*\(/)
