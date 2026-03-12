@@ -57,11 +57,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     const loading = loadingCandidatos || loadingVacantes || loadingActividades
 
     // Refetch funcional remapeado a Invalidate Queries
-    const refetchAll = async () => {
+    const refetchAll = React.useCallback(async () => {
         await queryClient.invalidateQueries({ queryKey: ['candidatos'] })
         await queryClient.invalidateQueries({ queryKey: ['vacantes'] })
         await queryClient.invalidateQueries({ queryKey: ['actividades'] })
-    }
+    }, [queryClient])
 
     const contextValue = React.useMemo(() => ({
         candidatos,

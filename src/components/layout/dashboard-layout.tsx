@@ -21,16 +21,17 @@ import {
     Plus, Command
 } from 'lucide-react'
 import { useUIStore } from '@/lib/store'
+import { useShallow } from 'zustand/react/shallow'
 import { useGlobalDialogs } from '@/components/layout/global-dialogs'
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { data: session, status } = useSession()
     const { theme, setTheme } = useTheme()
-    const { globalSearch, setGlobalSearch, addNotification } = useUIStore((state) => ({
+    const { globalSearch, setGlobalSearch, addNotification } = useUIStore(useShallow((state) => ({
         globalSearch: state.busqueda,
         setGlobalSearch: state.setBusqueda,
         addNotification: state.addNotification
-    }))
+    })))
     const pathname = usePathname()
     const router = useRouter()
     const { setIsNewCandidatoDialogOpen } = useGlobalDialogs()
