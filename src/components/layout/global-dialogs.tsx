@@ -301,7 +301,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
         await queryClient.invalidateQueries({ queryKey: ['candidatos'] })
         addNotification({
           type: 'success',
-          title: 'AcciÃ³n completada',
+          title: 'Acción completada',
           message: `Se procesaron ${ids.length} candidatos`,
         })
       }
@@ -309,7 +309,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
       addNotification({
         type: 'error',
         title: 'Error',
-        message: 'No se pudo completar la acciÃ³n',
+        message: 'No se pudo completar la acción',
       })
     }
   }
@@ -366,7 +366,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
         addNotification({
           type: 'success',
           title: 'Vacante creada',
-          message: `Se creÃ³ la vacante "${data.titulo}"`,
+          message: `Se creó la vacante "${data.titulo}"`,
         })
       }
     } catch (error) {
@@ -549,7 +549,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
         const result = await res.json()
         addNotification({
           type: 'success',
-          title: 'SincronizaciÃ³n completada',
+          title: 'Sincronización completada',
           message: `${result.resultados?.total || 0} registros procesados`,
         })
         setIsSyncDialogOpen(false)
@@ -557,10 +557,10 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
         await queryClient.invalidateQueries({ queryKey: ['vacantes'] })
       } else {
         const error = await res.json()
-        addNotification({ type: 'error', title: error.error || 'Error en sincronizaciÃ³n' })
+        addNotification({ type: 'error', title: error.error || 'Error en sincronización' })
       }
     } catch (error) {
-      addNotification({ type: 'error', title: 'Error en sincronizaciÃ³n' })
+      addNotification({ type: 'error', title: 'Error en sincronización' })
     }
   }
 
@@ -682,7 +682,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
                       <p className="font-medium">{selectedCandidato.email}</p>
                     </div>
                     <div>
-                      <Label className="text-muted-foreground">TelÃ©fono</Label>
+                      <Label className="text-muted-foreground">Teléfono</Label>
                       <p className="font-medium">{selectedCandidato.telefono || 'No registrado'}</p>
                     </div>
                     <div>
@@ -768,7 +768,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
                             <div className="flex-1">
                               <p className="font-medium">{act.descripcion}</p>
                               <p className="text-xs text-muted-foreground">
-                                {act.usuario?.name || 'Sistema'} Â· {' '}
+                                {act.usuario?.name || 'Sistema'} · {' '}
                                 {format(new Date(act.createdAt), 'dd/MM/yyyy HH:mm', { locale: es })}
                               </p>
                             </div>
@@ -847,21 +847,23 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
                 )} />
               </div>
 
-              <FormField control={newCandidatoForm.control} name="email" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email *</FormLabel>
-                  <FormControl><Input type="email" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField control={newCandidatoForm.control} name="email" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email *</FormLabel>
+                    <FormControl><Input type="email" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-              <FormField control={newCandidatoForm.control} name="telefono" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Teléfono</FormLabel>
-                  <FormControl><Input {...field} value={field.value || ''} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                <FormField control={newCandidatoForm.control} name="telefono" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Teléfono</FormLabel>
+                    <FormControl><Input {...field} value={field.value || ''} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={newCandidatoForm.control} name="fuente" render={({ field }) => (
@@ -915,46 +917,51 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
                 </FormItem>
               )} />
 
-              <FormField control={newCandidatoForm.control} name="linkedin" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>LinkedIn URL</FormLabel>
-                  <FormControl><Input placeholder="https://linkedin.com/in/..." {...field} value={field.value || ''} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField control={newCandidatoForm.control} name="linkedin" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>LinkedIn URL</FormLabel>
+                    <FormControl><Input placeholder="https://linkedin.com/in/..." {...field} value={field.value || ''} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-              <FormField control={newCandidatoForm.control} name="portfolio" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Portfolio/Sitio Web</FormLabel>
-                  <FormControl><Input placeholder="https://portfolio.com" {...field} value={field.value || ''} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                <FormField control={newCandidatoForm.control} name="portfolio" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Portfolio/Sitio Web</FormLabel>
+                    <FormControl><Input placeholder="https://portfolio.com" {...field} value={field.value || ''} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
 
-              <FormField control={newCandidatoForm.control} name="tags" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tags</FormLabel>
-                  <FormControl><Input placeholder="javascript, senior, remoto" {...field} value={field.value || ''} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField control={newCandidatoForm.control} name="tags" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tags</FormLabel>
+                    <FormControl><Input placeholder="javascript, senior, remoto" {...field} value={field.value || ''} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-              <FormField control={newCandidatoForm.control} name="salarioEsperado" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Salario esperado</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="MXN mensual"
-                      {...field}
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                <FormField control={newCandidatoForm.control} name="salarioEsperado" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Salario esperado</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="MXN mensual"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
 
+              <div className="pb-20" />
               <SheetFooter className="absolute bottom-0 left-0 w-full p-4 bg-background border-t">
                 <Button type="button" variant="outline" onClick={() => setIsNewCandidatoDialogOpen(false)} disabled={isCreatingCandidato}>
                   Cancelar
@@ -980,14 +987,14 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
             <div className="space-y-4">
               {selectedVacante.descripcion && (
                 <div>
-                  <Label className="text-muted-foreground">DescripciÃ³n</Label>
+                  <Label className="text-muted-foreground">Descripción</Label>
                   <p className="text-sm mt-1">{selectedVacante.descripcion}</p>
                 </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">UbicaciÃ³n</Label>
+                  <Label className="text-muted-foreground">Ubicación</Label>
                   <p>{selectedVacante.ubicacion || 'No especificada'}</p>
                 </div>
                 <div>
@@ -1012,7 +1019,7 @@ export function GlobalDialogsProvider({ children }: { children: React.ReactNode 
               {selectedVacante.tipoContrato && <p className="text-sm"><span className="text-muted-foreground">Tipo de contrato:</span> {selectedVacante.tipoContrato}</p>}
               {selectedVacante.requisitos && <p className="text-sm"><span className="text-muted-foreground">Requisitos:</span> {selectedVacante.requisitos}</p>}
               {selectedVacante.beneficios && <p className="text-sm"><span className="text-muted-foreground">Beneficios:</span> {selectedVacante.beneficios}</p>}
-              {selectedVacante.fechaLimite && <p className="text-sm"><span className="text-muted-foreground">Fecha lÃ­mite:</span> {format(new Date(selectedVacante.fechaLimite), 'dd/MM/yyyy')}</p>}
+              {selectedVacante.fechaLimite && <p className="text-sm"><span className="text-muted-foreground">Fecha límite:</span> {format(new Date(selectedVacante.fechaLimite), 'dd/MM/yyyy')}</p>}
 
               <div className="pt-4 border-t">
                 <p className="text-sm text-muted-foreground">
