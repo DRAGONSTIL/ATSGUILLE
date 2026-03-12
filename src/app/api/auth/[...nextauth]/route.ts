@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authOptions } from '@/lib/auth'
 import { assertRuntimeSecurity } from '@/lib/bootstrap'
 
-async function runAuthHandler(request: NextRequest) {
+const nextAuthHandler = NextAuth(authOptions)
+
+async function runAuthHandler(request: NextRequest, context: any) {
   if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
     return NextResponse.json(
       {
@@ -15,7 +17,7 @@ async function runAuthHandler(request: NextRequest) {
   }
 
   assertRuntimeSecurity()
-  return NextAuth(request, NextResponse, authOptions)
+  return nextAuthHandler(request, context)
 }
 
 const handler = runAuthHandler
@@ -26,23 +28,23 @@ function getLastPathSegment(pathname: string): string {
   return parts[parts.length - 1] || ''
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, context: any) {
   const tail = getLastPathSegment(request.nextUrl.pathname)
 
   // Hardening: si por enrutamiento cae en el catch-all, mantener contrato JSON para NextAuth client.
   if (tail === 'session') {
     try {
-      return await handler(request)
+      return await handler(request, context)
     } catch (error) {
       console.error('nextauth_session_fallback_error', error)
       return NextResponse.json({}, { status: 200 })
     }
   }
 
-  return handler(request)
+  return handler(request, context)
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, context: any) {
   const tail = getLastPathSegment(request.nextUrl.pathname)
 
   // Hardening: evitar 500 en /api/auth/_log si este path cae por el catch-all.
@@ -57,5 +59,5 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return handler(request)
+  return handler(request, context)
 }
