@@ -37,12 +37,18 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         // Rehydrate zustand persist store
+        // eslint-disable-next-line react-hooks/rules-of-hooks
         useUIStore.persist.rehydrate()
     }, [])
 
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
     const searchInputRef = useRef<HTMLInputElement>(null)
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     const isPrivilegedUser = session?.user?.rol === 'ADMIN' || session?.user?.rol === 'GERENTE'
 
@@ -162,7 +168,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                             size="icon"
                                             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                                         >
-                                            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                                            {mounted ? (theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />) : <div className="h-5 w-5" />}
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Cambiar tema</TooltipContent>

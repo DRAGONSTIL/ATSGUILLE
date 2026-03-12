@@ -14,6 +14,12 @@ async function runAuthHandler(request: NextRequest) {
     )
   }
 
+  assertRuntimeSecurity()
+  return NextAuth(request, NextResponse, authOptions)
+}
+
+const handler = runAuthHandler
+
 function getLastPathSegment(pathname: string): string {
   const clean = pathname.replace(/\/+$/, '')
   const parts = clean.split('/').filter(Boolean)
