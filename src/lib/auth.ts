@@ -151,6 +151,126 @@ async function initializeDemoData(empresaId: string, equipoId: string) {
   }
 }
 
+// Seed starter data for new Google OAuth users
+async function seedStarterData(empresaId: string, equipoId: string, userId: string) {
+  // Check if this empresa already has data
+  const vacantesCount = await db.vacante.count({ where: { empresaId } })
+  if (vacantesCount > 0) return
+
+  // Create starter vacantes
+  const vacanteData = [
+    {
+      titulo: 'Ingeniero de Software Senior',
+      descripcion: 'Buscamos ingeniero con experiencia sólida en arquitectura de microservicios, React y Node.js.',
+      ubicacion: 'Ciudad de México',
+      salarioMin: 45000,
+      salarioMax: 70000,
+      estatus: 'PUBLICADA' as const,
+      prioridad: 'ALTA' as const,
+      empresaId,
+    },
+    {
+      titulo: 'Analista de Datos',
+      descripcion: 'Analista con experiencia en Python, SQL y herramientas de visualización como Tableau o Power BI.',
+      ubicacion: 'Remoto',
+      salarioMin: 30000,
+      salarioMax: 48000,
+      estatus: 'PUBLICADA' as const,
+      prioridad: 'MEDIA' as const,
+      empresaId,
+    },
+    {
+      titulo: 'Director de Marketing Digital',
+      descripcion: 'Líder de marketing con experiencia en estrategias digitales, SEO/SEM y gestión de equipos.',
+      ubicacion: 'Monterrey',
+      salarioMin: 55000,
+      salarioMax: 85000,
+      estatus: 'PUBLICADA' as const,
+      prioridad: 'URGENTE' as const,
+      empresaId,
+    },
+  ]
+
+  const vacantes = await Promise.all(
+    vacanteData.map(v => db.vacante.create({ data: v }))
+  )
+
+  // Candidate data with varied statuses
+  const candidatos = [
+    { nombre: 'Andrea', apellido: 'Vega', fuente: 'LINKEDIN', estatus: 'REGISTRADO' },
+    { nombre: 'Ricardo', apellido: 'Morales', fuente: 'REFERIDO', estatus: 'REGISTRADO' },
+    { nombre: 'Patricia', apellido: 'Castillo', fuente: 'OCC', estatus: 'EN_PROCESO' },
+    { nombre: 'Fernando', apellido: 'Reyes', fuente: 'LINKEDIN', estatus: 'EN_PROCESO' },
+    { nombre: 'Daniela', apellido: 'Ortiz', fuente: 'COMPUTRABAJA', estatus: 'ENTREVISTA' },
+    { nombre: 'Alejandro', apellido: 'Mendoza', fuente: 'LINKEDIN', estatus: 'ENTREVISTA' },
+    { nombre: 'Gabriela', apellido: 'Herrera', fuente: 'REFERIDO', estatus: 'ENTREVISTA' },
+    { nombre: 'Sebastián', apellido: 'Vargas', fuente: 'OCC', estatus: 'CONTRATADO' },
+    { nombre: 'Mariana', apellido: 'Jiménez', fuente: 'LINKEDIN', estatus: 'CONTRATADO' },
+    { nombre: 'Hugo', apellido: 'Salazar', fuente: 'COMPUTRABAJA', estatus: 'RECHAZADO' },
+    { nombre: 'Valeria', apellido: 'Aguirre', fuente: 'REFERIDO', estatus: 'REGISTRADO' },
+    { nombre: 'Emilio', apellido: 'Navarro', fuente: 'OTRO', estatus: 'EN_PROCESO' },
+  ]
+
+  const createdCandidatos = await Promise.all(
+    candidatos.map((c, i) => {
+      const now = Date.now()
+      const daysAgo = Math.floor(Math.random() * 20) + 1
+      const createdAt = new Date(now - daysAgo * 24 * 60 * 60 * 1000)
+      return db.candidato.create({
+        data: {
+          nombre: c.nombre,
+          apellido: c.apellido,
+          email: `${c.nombre.toLowerCase()}.${c.apellido.toLowerCase()}.${now}@aplicante.com`,
+          telefono: `+52 55 ${String(1000 + i * 111).padStart(4, '0')} ${String(2000 + i * 222).padStart(4, '0')}`,
+          fuente: c.fuente,
+          estatus: c.estatus,
+          vacanteId: vacantes[i % vacantes.length].id,
+          equipoId,
+          reclutadorId: userId,
+          rating: c.estatus === 'CONTRATADO' ? 5 : c.estatus === 'ENTREVISTA' ? 4 : c.estatus === 'RECHAZADO' ? 2 : 3,
+          createdAt,
+          fechaContratacion: c.estatus === 'CONTRATADO' ? new Date(now - Math.floor(Math.random() * 5) * 24 * 60 * 60 * 1000) : undefined,
+          fechaRechazo: c.estatus === 'RECHAZADO' ? new Date(now - Math.floor(Math.random() * 3) * 24 * 60 * 60 * 1000) : undefined,
+        },
+      })
+    })
+  )
+
+  // Create recent activities
+  await Promise.all([
+    db.actividad.create({
+      data: {
+        tipo: 'CREAR_CANDIDATO',
+        descripcion: `${candidatos[0].nombre} ${candidatos[0].apellido} registrado como candidato`,
+        entidad: 'candidato',
+        entidadId: createdCandidatos[0].id,
+        usuarioId: userId,
+        candidatoId: createdCandidatos[0].id,
+      },
+    }),
+    db.actividad.create({
+      data: {
+        tipo: 'CAMBIO_ESTATUS',
+        descripcion: `${candidatos[7].nombre} ${candidatos[7].apellido} fue contratado`,
+        entidad: 'candidato',
+        entidadId: createdCandidatos[7].id,
+        usuarioId: userId,
+        candidatoId: createdCandidatos[7].id,
+      },
+    }),
+    db.actividad.create({
+      data: {
+        tipo: 'CAMBIO_ESTATUS',
+        descripcion: `${candidatos[4].nombre} ${candidatos[4].apellido} pasó a etapa de entrevista`,
+        entidad: 'candidato',
+        entidadId: createdCandidatos[4].id,
+        usuarioId: userId,
+        candidatoId: createdCandidatos[4].id,
+      },
+    }),
+  ])
+}
+
 // Helper para obtener o crear usuario demo (todos en la misma empresa)
 async function getOrCreateDemoUser(rol: Rol, demoKeyEmail?: string) {
   if (!isDemoModeEnabled) {
@@ -316,9 +436,7 @@ export const authOptions: NextAuthOptions = {
               },
             })
 
-            // El PrismaAdapter puede no haber creado el usuario todavía,
-            // así que usamos upsert para manejar ambos casos
-            await db.user.upsert({
+            const createdUser = await db.user.upsert({
               where: { email: user.email! },
               create: {
                 email: user.email!,
@@ -334,11 +452,22 @@ export const authOptions: NextAuthOptions = {
                 equipoId: equipo.id,
               },
             })
+
+            try {
+              await seedStarterData(empresa.id, equipo.id, createdUser.id)
+            } catch (seedError) {
+              console.error('Error seeding starter data:', seedError)
+            }
+          } else if (existingUser.empresaId && existingUser.equipoId) {
+            // Existing user: seed data if their empresa is empty
+            try {
+              await seedStarterData(existingUser.empresaId, existingUser.equipoId, existingUser.id)
+            } catch (seedError) {
+              console.error('Error seeding data for existing user:', seedError)
+            }
           }
         } catch (error) {
           console.error('Error in signIn callback:', error)
-          // No bloquear el login por errores en la asignación de empresa
-          // El usuario se creará sin empresa y se puede asignar después
         }
       }
 
