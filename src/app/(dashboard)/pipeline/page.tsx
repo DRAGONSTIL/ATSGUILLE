@@ -23,9 +23,7 @@ export default function PipelinePage() {
   const [criticalReason, setCriticalReason] = useState('')
 
   const changeStatus = async (id: string, estatus: Estatus, reason?: string) => {
-    const previousData = queryClient.getQueryData(['candidatos', 'page=1&limit=50']) as any
-    setSavingId(id)
-
+    // Optimistic update for all queries starting with 'candidatos'
     queryClient.setQueriesData({ queryKey: ['candidatos'] }, (current: any) => {
       if (!current?.candidatos) return current
       return {
@@ -40,9 +38,7 @@ export default function PipelinePage() {
         payload: reason ? { estatus, notas: `Cambio crítico (${estatus}). Motivo: ${reason}` } : { estatus },
       })
     } catch {
-      if (previousData) {
-        queryClient.setQueryData(['candidatos', 'page=1&limit=50'], previousData)
-      }
+      // If error, invalidate all to get fresh data from server
       await queryClient.invalidateQueries({ queryKey: ['candidatos'] })
     } finally {
       setSavingId(null)

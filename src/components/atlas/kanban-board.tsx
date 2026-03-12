@@ -94,6 +94,8 @@ function SortableKanbanCard({
           : 'hover:shadow-md hover:-translate-y-0.5'
         }`}
       onClick={onClick}
+      {...attributes}
+      {...listeners}
     >
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start gap-2">
@@ -107,13 +109,6 @@ function SortableKanbanCard({
               {candidato.nombre} {candidato.apellido}
             </p>
             <p className="text-xs text-muted-foreground truncate">{candidato.email}</p>
-          </div>
-          <div
-            {...attributes}
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing"
-          >
-            <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
 
@@ -203,7 +198,7 @@ function KanbanColumn({
   })
 
   return (
-    <div className="flex-shrink-0 w-72">
+    <div className="flex-shrink-0 w-80">
       <div className="sticky top-0 z-10 flex items-center gap-2 mb-3 bg-background/95 backdrop-blur py-2">
         <div className={`w-3 h-3 rounded-full ${color}`} />
         <h3 className="font-semibold text-sm">{titulo}</h3>
@@ -254,7 +249,7 @@ export function KanbanBoard({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5,
+        distance: 10,
       },
     }),
     useSensor(KeyboardSensor, {
