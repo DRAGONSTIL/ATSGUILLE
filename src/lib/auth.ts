@@ -294,35 +294,50 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account }) {
       // Para Google OAuth, primer usuario es ADMIN
       if (account?.provider === 'google') {
-        const existingUser = await db.user.findUnique({
-          where: { email: user.email! },
-        })
-
-        if (!existingUser) {
-          // Crear empresa y equipo para nuevo usuario
-          const empresa = await db.empresa.create({
-            data: {
-              nombre: `Organización de ${user.name || 'Usuario'}`,
-              activa: true,
-            },
-          })
-
-          const equipo = await db.equipo.create({
-            data: {
-              nombre: 'Equipo Principal',
-              empresaId: empresa.id,
-            },
-          })
-
-          // Actualizar el usuario que creó el adapter
-          await db.user.update({
+        try {
+          const existingUser = await db.user.findUnique({
             where: { email: user.email! },
-            data: {
-              rol: 'ADMIN',
-              empresaId: empresa.id,
-              equipoId: equipo.id,
-            },
           })
+
+          if (!existingUser) {
+            // Crear empresa y equipo para nuevo usuario
+            const empresa = await db.empresa.create({
+              data: {
+                nombre: `Organización de ${user.name || 'Usuario'}`,
+                activa: true,
+              },
+            })
+
+            const equipo = await db.equipo.create({
+              data: {
+                nombre: 'Equipo Principal',
+                empresaId: empresa.id,
+              },
+            })
+
+            // El PrismaAdapter puede no haber creado el usuario todavía,
+            // así que usamos upsert para manejar ambos casos
+            await db.user.upsert({
+              where: { email: user.email! },
+              create: {
+                email: user.email!,
+                name: user.name,
+                imagen: user.image,
+                rol: 'ADMIN',
+                empresaId: empresa.id,
+                equipoId: equipo.id,
+              },
+              update: {
+                rol: 'ADMIN',
+                empresaId: empresa.id,
+                equipoId: equipo.id,
+              },
+            })
+          }
+        } catch (error) {
+          console.error('Error in signIn callback:', error)
+          // No bloquear el login por errores en la asignación de empresa
+          // El usuario se creará sin empresa y se puede asignar después
         }
       }
 
