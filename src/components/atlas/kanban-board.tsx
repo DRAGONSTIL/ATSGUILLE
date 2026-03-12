@@ -89,11 +89,14 @@ function SortableKanbanCard({
     <Card
       ref={setNodeRef}
       style={style}
-      className={`kanban-card cursor-pointer group relative overflow-hidden transition-all duration-300 ${isDragging
-          ? 'shadow-2xl ring-2 ring-primary scale-[1.02] z-50 opacity-90'
+      className={`kanban-card cursor-grab active:cursor-grabbing select-none group relative overflow-hidden transition-all duration-300 ${isDragging
+          ? 'shadow-2xl ring-2 ring-primary scale-[1.05] z-50 opacity-90'
           : 'hover:shadow-md hover:-translate-y-0.5'
         }`}
-      onClick={onClick}
+      onClick={(e) => {
+        // Only trigger click if we weren't dragging
+        if (!isDragging) onClick();
+      }}
       {...attributes}
       {...listeners}
     >

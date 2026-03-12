@@ -32,12 +32,16 @@ export default function PipelinePage() {
       }
     })
 
+    console.log(`[Pipeline] Cambiando estatus de ${id} a ${estatus}`)
+
     try {
-      await updateMutation.mutateAsync({
-        id,
+      const response = await updateMutation.mutateAsync({
+        id: String(id),
         payload: reason ? { estatus, notas: `Cambio crítico (${estatus}). Motivo: ${reason}` } : { estatus },
       })
-    } catch {
+      console.log(`[Pipeline] Éxito al cambiar estatus:`, response)
+    } catch (err) {
+      console.error(`[Pipeline] Error al cambiar estatus:`, err)
       // If error, invalidate all to get fresh data from server
       await queryClient.invalidateQueries({ queryKey: ['candidatos'] })
     } finally {
