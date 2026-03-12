@@ -1,0 +1,49 @@
+# Endpoint Security Matrix
+
+| Ruta | Auth | Role | Tenant Guard | Rate Limit |
+|---|---|---|---|---|
+| `/api/actividades/route.ts` | yes | yes | yes | no |
+| `/api/admin/asignar/route.ts` | yes | partial/manual | no | no |
+| `/api/auth/[...nextauth]/route.ts` | no | partial/manual | no | no |
+| `/api/auth/invite/accept/route.ts` | no | partial/manual | no | no |
+| `/api/auth/invite/route.ts` | yes | partial/manual | no | yes |
+| `/api/auth/invite/validate/route.ts` | no | partial/manual | no | no |
+| `/api/candidatos/[id]/route.ts` | yes | yes | yes | no |
+| `/api/candidatos/apply/route.ts` | no | partial/manual | no | yes |
+| `/api/candidatos/bulk/route.ts` | yes | partial/manual | no | yes |
+| `/api/candidatos/import/route.ts` | yes | yes | yes | no |
+| `/api/candidatos/route.ts` | yes | yes | yes | yes |
+| `/api/demo/keys/route.ts` | yes | partial/manual | no | no |
+| `/api/demo/request/route.ts` | no | partial/manual | no | no |
+| `/api/demo/use/route.ts` | no | partial/manual | no | no |
+| `/api/demo/validate/route.ts` | no | partial/manual | no | no |
+| `/api/documentos/download/[id]/route.ts` | yes | yes | yes | no |
+| `/api/documentos/route.ts` | yes | yes | yes | yes |
+| `/api/email-templates/[id]/route.ts` | yes | partial/manual | no | no |
+| `/api/email-templates/route.ts` | yes | partial/manual | no | no |
+| `/api/emails/route.ts` | yes | yes | yes | yes |
+| `/api/empresas/route.ts` | yes | partial/manual | no | yes |
+| `/api/entrevistas/[id]/route.ts` | yes | yes | yes | no |
+| `/api/entrevistas/route.ts` | yes | yes | yes | no |
+| `/api/equipos/route.ts` | yes | yes | yes | yes |
+| `/api/evaluaciones/[id]/preguntas/route.ts` | yes | partial/manual | no | no |
+| `/api/evaluaciones/[id]/route.ts` | yes | partial/manual | no | no |
+| `/api/evaluaciones/asignar/route.ts` | yes | partial/manual | no | no |
+| `/api/evaluaciones/route.ts` | yes | partial/manual | no | no |
+| `/api/health/route.ts` | no | partial/manual | no | no |
+| `/api/intake/form-submission/route.ts` | no | partial/manual | no | no |
+| `/api/metas/[id]/route.ts` | yes | partial/manual | no | no |
+| `/api/metas/route.ts` | yes | partial/manual | no | no |
+| `/api/metricas/route.ts` | yes | partial/manual | no | no |
+| `/api/notas/route.ts` | yes | yes | yes | no |
+| `/api/notificaciones/route.ts` | yes | partial/manual | no | no |
+| `/api/reportes/route.ts` | yes | yes | yes | no |
+| `/api/route.ts` | no | partial/manual | no | no |
+| `/api/search/route.ts` | yes | yes | yes | no |
+| `/api/seed/route.ts` | yes | yes | no | no |
+| `/api/sync/route.ts` | yes | yes | yes | yes |
+| `/api/tareas/route.ts` | yes | partial/manual | no | no |
+| `/api/usuarios/route.ts` | yes | yes | yes | no |
+| `/api/vacantes/[id]/route.ts` | yes | yes | yes | no |
+| `/api/vacantes/public/route.ts` | no | partial/manual | no | no |
+| `/api/vacantes/route.ts` | yes | yes | yes | yes |

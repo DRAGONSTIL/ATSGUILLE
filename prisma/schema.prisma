@@ -1,0 +1,878 @@
+// ATLAS GSE - Sistema de Gestión de Reclutamiento Profesional
+// Schema Multi-tenant Completo
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ====================
+// ENUMS
+// ====================
+
+enum Rol {
+  ADMIN
+  GERENTE
+  RECLUTADOR
+}
+
+enum EstatusCandidato {
+  REGISTRADO
+  EN_PROCESO
+  ENTREVISTA
+  CONTRATADO
+  RECHAZADO
+}
+
+enum EstatusVacante {
+  BORRADOR
+  PUBLICADA
+  PAUSADA
+  CERRADA
+}
+
+enum PrioridadVacante {
+  BAJA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum FuenteCandidato {
+  LINKEDIN
+  OCC
+  COMPUTRABAJA
+  REFERIDO
+  AGENCIA
+  FERIA_EMPLEO
+  UNIVERSIDAD
+  RED_SOCIAL
+  OTRO
+}
+
+enum TipoDocumento {
+  CV
+  PORTAFOLIO
+  CERTIFICADO
+  CARTA_RECOMENDACION
+  CONTRATO
+  OTRO
+}
+
+enum TipoMetrica {
+  TIME_TO_HIRE
+  COST_PER_HIRE
+  QUALITY_OF_HIRE
+  OFFER_ACCEPTANCE_RATE
+  SOURCE_EFFECTIVENESS
+  PIPELINE_VELOCITY
+  CANDIDATES_PER_HIRE
+  INTERVIEW_TO_OFFER_RATIO
+  FIRST_YEAR_RETENTION
+  REQUISITION_FILL_RATE
+}
+
+enum PeriodoMeta {
+  SEMANAL
+  QUINCENAL
+  MENSUAL
+  TRIMESTRAL
+}
+
+enum EstatusMeta {
+  PENDIENTE
+  EN_PROGRESO
+  COMPLETADA
+  EXCEDIDA
+  VENCIDA
+}
+
+enum TipoActividad {
+  CREAR_CANDIDATO
+  ACTUALIZAR_ESTATUS
+  AGENDAR_ENTREVISTA
+  ENVIAR_OFERTA
+  CONTRATAR
+  RECHAZAR
+  SUBIR_DOCUMENTO
+  ENVIAR_EMAIL
+  NOTA_AGREGADA
+  SINCRONIZACION
+}
+
+enum EstatusDemoKey {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  USADA
+  EXPIRADA
+}
+
+
+
+enum IntakeSubmissionStatus {
+  RECEIVED
+  PROCESSED
+  DUPLICATE
+  ERROR
+}
+
+// ====================
+// NEXTAUTH MODELS
+// ====================
+
+model Account {
+  id                        String  @id @default(cuid())
+  userId                    String
+  type                      String
+  provider                  String
+  providerAccountId         String
+  refresh_token             String?
+  access_token              String?
+  expires_at                Int?
+  token_type                String?
+  scope                     String?
+  id_token                  String?
+  session_state             String?
+  refresh_token_expires_in  Int?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String  @id @default(cuid())
+  sessionToken String  @unique
+  userId       String
+  expires      DateTime
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ====================
+// CORE MODELS
+// ====================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  imagen        String?
+  telefono      String?
+  puesto        String?
+  rol           Rol       @default(RECLUTADOR)
+  empresaId     String?
+  equipoId      String?
+  activo        Boolean   @default(true)
+  ultimoAcceso  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  empresa       Empresa?   @relation(fields: [empresaId], references: [id])
+  equipo        Equipo?    @relation(fields: [equipoId], references: [id])
+  accounts      Account[]
+  sessions      Session[]
+  candidatos    Candidato[]
+  vacantes      Vacante[]
+  invitaciones  Invitacion[]
+  metas         Meta[]
+  actividades   Actividad[]
+  notificaciones Notificacion[]
+  notas         Nota[]
+  tareasAsignadas Tarea[]  @relation("TareaAsignado")
+  tareasCreadas    Tarea[]  @relation("TareaCreador")
+
+  @@index([email])
+  @@index([empresaId])
+  @@index([equipoId])
+  @@index([rol])
+}
+
+model Empresa {
+  id                String      @id @default(cuid())
+  nombre            String
+  logo              String?
+  direccion         String?
+  telefono          String?
+  sitioWeb          String?
+  industria         String?
+  tamano            String?     // "1-10", "11-50", "51-200", "201-500", "500+"
+  activa            Boolean     @default(true)
+  configuracion     Json?       // Configuraciones generales
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  usuarios          User[]
+  equipos           Equipo[]
+  vacantes          Vacante[]
+  invitaciones      Invitacion[]
+  metricasConfig    MetricaConfig[]
+  intakeKeys        IntakeKey[]
+  intakeSubmissions IntakeSubmission[]
+  intakeNonces      IntakeNonce[]
+
+  @@index([activa])
+}
+
+model Equipo {
+  id              String      @id @default(cuid())
+  nombre          String
+  descripcion     String?
+  color           String?     // Color para identificar en UI
+  empresaId       String
+  appsScriptUrl   String?
+  ultimoSync      DateTime?
+  activo          Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  empresa         Empresa     @relation(fields: [empresaId], references: [id])
+  usuarios        User[]
+  candidatos      Candidato[]
+  syncLogs        SyncLog[]
+  invitaciones    Invitacion[]
+  intakeKeys      IntakeKey[]
+
+  @@index([empresaId])
+}
+
+model Candidato {
+  id                String            @id @default(cuid())
+  nombre            String
+  apellido          String
+  email             String
+  telefono          String?
+  telefonoAlt       String?
+  direccion         String?
+  ciudad            String?
+  estado            String?
+  pais              String?
+  codigoPostal      String?
+  linkedin          String?
+  portfolio         String?
+  fuente            FuenteCandidato   @default(OTRO)
+  estatus           EstatusCandidato  @default(REGISTRADO)
+  notas             String?
+  tags              String?           // Tags separados por coma
+  rating            Int?              // 1-5 estrellas
+  salarioEsperado   Float?
+  disponibilidad    String?           // "Inmediata", "2 semanas", "1 mes"
+  googleSheetRowId  String?
+  vacanteId         String?
+  reclutadorId      String?
+  equipoId          String
+  fechaEntrevista   DateTime?
+  fechaOferta       DateTime?
+  fechaContratacion DateTime?
+  fechaRechazo      DateTime?
+  motivoRechazo     String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  vacante           Vacante?          @relation(fields: [vacanteId], references: [id])
+  reclutador        User?             @relation(fields: [reclutadorId], references: [id])
+  equipo            Equipo            @relation(fields: [equipoId], references: [id])
+  documentos        Documento[]
+  actividades       Actividad[]
+  entrevistas       Entrevista[]
+  notasCandidato    Nota[]
+  comunicaciones    Comunicacion[]
+  evaluaciones      RespuestaEvaluacion[]
+  scorecards        ScorecardRespuesta[]
+  intakeSubmissions IntakeSubmission[]
+
+  @@index([email])
+  @@index([estatus])
+  @@index([vacanteId])
+  @@index([reclutadorId])
+  @@index([equipoId])
+  @@index([fuente])
+  @@index([rating])
+}
+
+model Vacante {
+  id                String            @id @default(cuid())
+  titulo            String
+  codigo            String?           // Código interno de la vacante
+  descripcion       String?
+  requisitos        String?
+  beneficios        String?
+  ubicacion         String?
+  modalidad         String?           // "Presencial", "Remoto", "Híbrido"
+  tipoContrato      String?           // "Tiempo completo", "Medio tiempo", "Contrato", "Freelance"
+  salarioMin        Float?
+  salarioMax        Float?
+  salarioMostrar    Boolean           @default(true)
+  estatus           EstatusVacante    @default(BORRADOR)
+  prioridad         PrioridadVacante  @default(MEDIA)
+  empresaId         String
+  reclutadorId      String?
+  equipoId          String?
+  fechaPublicacion  DateTime?
+  fechaLimite       DateTime?
+  vacantes          Int               @default(1)
+  vacantesLlenas    Int               @default(0)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  empresa           Empresa           @relation(fields: [empresaId], references: [id])
+  reclutador        User?             @relation(fields: [reclutadorId], references: [id])
+  candidatos        Candidato[]
+  entrevistas       Entrevista[]
+  metricas          VacanteMetrica[]
+
+  @@index([empresaId])
+  @@index([estatus])
+  @@index([reclutadorId])
+  @@index([prioridad])
+}
+
+model Documento {
+  id            String          @id @default(cuid())
+  nombre        String
+  nombreOriginal String?
+  tipo          TipoDocumento   @default(CV)
+  url           String
+  tamanho       Int?            // En bytes
+  mimetype      String?
+  candidatoId   String
+  subidoPorId   String?
+  // Campo legado; ya no se guarda contenido binario/base64 en BD
+  contenido     String?
+  createdAt     DateTime        @default(now())
+
+  candidato     Candidato       @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+
+  @@index([candidatoId])
+  @@index([tipo])
+}
+
+
+
+model IntakeKey {
+  id               String   @id @default(cuid())
+  empresaId        String
+  equipoId         String
+  name             String
+  keyHash          String
+  secretEncrypted  String
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  empresa          Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  equipo           Equipo   @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  submissions      IntakeSubmission[]
+  nonces           IntakeNonce[]
+
+  @@index([empresaId])
+  @@index([equipoId])
+  @@index([isActive])
+}
+
+model IntakeSubmission {
+  id                   String                 @id @default(cuid())
+  empresaId            String
+  intakeKeyId          String
+  source               String                 @default("google_form")
+  sheetId              String
+  sheetName            String
+  rowNumber            Int?
+  externalSubmissionId String
+  receivedAt           DateTime               @default(now())
+  processedAt          DateTime?
+  status               IntakeSubmissionStatus @default(RECEIVED)
+  errorMessage         String?
+  payloadRaw           Json
+  payloadNormalized    Json?
+  candidateId          String?
+
+  empresa              Empresa                @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  intakeKey            IntakeKey              @relation(fields: [intakeKeyId], references: [id], onDelete: Cascade)
+  candidato            Candidato?             @relation(fields: [candidateId], references: [id])
+
+  @@unique([empresaId, externalSubmissionId])
+  @@index([empresaId, receivedAt])
+  @@index([empresaId, status])
+  @@index([intakeKeyId])
+}
+
+model IntakeNonce {
+  id          String   @id @default(cuid())
+  empresaId   String
+  intakeKeyId String
+  nonceHash   String   @unique
+  timestamp   Int
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  intakeKey   IntakeKey @relation(fields: [intakeKeyId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId, expiresAt])
+  @@index([intakeKeyId, timestamp])
+}
+
+model Invitacion {
+  id            String    @id @default(cuid())
+  email         String
+  rol           Rol       @default(RECLUTADOR)
+  empresaId     String?
+  equipoId      String?
+  token         String    @unique
+  mensaje       String?   // Mensaje personalizado
+  expiresAt     DateTime
+  usada         Boolean   @default(false)
+  usadoEn       DateTime?
+  createdAt     DateTime  @default(now())
+
+  empresa       Empresa?  @relation(fields: [empresaId], references: [id])
+  equipo        Equipo?   @relation(fields: [equipoId], references: [id])
+  invitadoPor   User?     @relation(fields: [invitadoPorId], references: [id])
+  invitadoPorId String?
+
+  @@index([token])
+  @@index([email])
+  @@index([expiresAt])
+  @@index([usada])
+}
+
+model SyncLog {
+  id                  String    @id @default(cuid())
+  equipoId            String
+  registrosProcesados Int       @default(0)
+  registrosNuevos     Int       @default(0)
+  registrosActualizados Int     @default(0)
+  errores             String?
+  detalles            String?   // JSON con detalles de la sincronización
+  duracion            Int?      // En milisegundos
+  createdAt           DateTime  @default(now())
+
+  equipo              Equipo    @relation(fields: [equipoId], references: [id])
+
+  @@index([equipoId])
+  @@index([createdAt])
+}
+
+// ====================
+// METRICAS Y METAS
+// ====================
+
+model MetricaConfig {
+  id              String        @id @default(cuid())
+  empresaId       String
+  tipo            TipoMetrica
+  nombre          String?
+  activa          Boolean       @default(true)
+  peso            Float         @default(1.0)  // Peso para cálculos
+  orden           Int           @default(0)
+  configuracion   Json?         // Configuración específica de la métrica
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  empresa         Empresa       @relation(fields: [empresaId], references: [id])
+
+  @@unique([empresaId, tipo])
+  @@index([empresaId])
+}
+
+model Meta {
+  id              String        @id @default(cuid())
+  reclutadorId    String
+  tipo            TipoMetrica
+  valor           Float         // Valor objetivo
+  valorActual     Float         @default(0)
+  periodo         PeriodoMeta
+  fechaInicio     DateTime
+  fechaFin        DateTime
+  estatus         EstatusMeta   @default(PENDIENTE)
+  notas           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  reclutador      User          @relation(fields: [reclutadorId], references: [id])
+
+  @@index([reclutadorId])
+  @@index([tipo])
+  @@index([periodo])
+  @@index([estatus])
+  @@index([fechaFin])
+}
+
+model VacanteMetrica {
+  id                String      @id @default(cuid())
+  vacanteId         String
+  vistas            Int         @default(0)
+  aplicaciones      Int         @default(0)
+  entrevistas       Int         @default(0)
+  ofertas           Int         @default(0)
+  contrataciones    Int         @default(0)
+  tiempoPromedio    Int?        // Días promedio en el pipeline
+  costoContratacion Float?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  vacante           Vacante     @relation(fields: [vacanteId], references: [id])
+
+  @@index([vacanteId])
+}
+
+// ====================
+// ACTIVIDAD Y NOTIFICACIONES
+// ====================
+
+model Actividad {
+  id            String          @id @default(cuid())
+  tipo          TipoActividad
+  descripcion   String
+  entidad       String?         // "candidato", "vacante", "empresa", etc.
+  entidadId     String?
+  usuarioId     String?
+  candidatoId   String?
+  metadata      Json?           // Datos adicionales
+  createdAt     DateTime        @default(now())
+
+  usuario       User?           @relation(fields: [usuarioId], references: [id])
+  candidato     Candidato?      @relation(fields: [candidatoId], references: [id])
+
+  @@index([tipo])
+  @@index([usuarioId])
+  @@index([candidatoId])
+  @@index([createdAt])
+}
+
+model Notificacion {
+  id            String      @id @default(cuid())
+  usuarioId     String
+  titulo        String
+  mensaje       String
+  tipo          String      // "info", "success", "warning", "error"
+  leida         Boolean     @default(false)
+  enlace        String?     // URL para navegar
+  entidad       String?
+  entidadId     String?
+  createdAt     DateTime    @default(now())
+
+  usuario       User        @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@index([leida])
+  @@index([createdAt])
+}
+
+// ====================
+// SISTEMA DE ENTREVISTAS AVANZADO
+// ====================
+
+model Entrevista {
+  id              String      @id @default(cuid())
+  candidatoId     String
+  vacanteId       String?
+  reclutadorId    String?
+  tipo            String?     // "Telefónica", "Video", "Presencial", "Técnica"
+  titulo          String?
+  fecha           DateTime
+  duracion        Int?        // En minutos
+  ubicacion       String?
+  enlace          String?     // URL de videollamada
+  notas           String?
+  feedback        String?
+  rating          Int?        // 1-5
+  estatus         String      @default("PROGRAMADA") // "PROGRAMADA", "REALIZADA", "CANCELADA", "REPROGRAMADA"
+  // Campos para integración de calendario
+  calendarEventId String?     // ID del evento en Google/Outlook
+  calendarProvider String?    // "google", "outlook", null
+  recordatorioEnviado Boolean @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  candidato       Candidato   @relation(fields: [candidatoId], references: [id])
+  vacante         Vacante?    @relation(fields: [vacanteId], references: [id])
+  feedbacks       EntrevistaFeedback[]
+
+  @@index([candidatoId])
+  @@index([vacanteId])
+  @@index([fecha])
+  @@index([estatus])
+}
+
+model EntrevistaFeedback {
+  id              String    @id @default(cuid())
+  entrevistaId    String
+  entrevistadorId String
+  // Scorecard estructurado
+  puntualidad     Int?      // 1-5
+  comunicacion    Int?      // 1-5
+  habilidadesTecnicas Int?  // 1-5
+  culturaFit      Int?      // 1-5
+  experiencia     Int?      // 1-5
+  ratingGeneral   Int?      // 1-5
+  fortalezas      String?
+  areasMejora     String?
+  recomendacion   String?   // "CONTRATAR", "CONSIDERAR", "RECHAZAR"
+  notas           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  entrevista      Entrevista @relation(fields: [entrevistaId], references: [id], onDelete: Cascade)
+
+  @@index([entrevistaId])
+  @@index([entrevistadorId])
+}
+
+// ====================
+// NOTAS Y TAREAS
+// ====================
+
+model Nota {
+  id            String    @id @default(cuid())
+  titulo        String?
+  contenido     String
+  tipo          String    @default("GENERAL") // "GENERAL", "IMPORTANTE", "REUNION", "IDEA"
+  entidad       String?   // "candidato", "vacante", "empresa"
+  entidadId     String?
+  usuarioId     String
+  candidatoId   String?
+  vacanteId     String?
+  archived      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  usuario       User?     @relation(fields: [usuarioId], references: [id])
+  candidato     Candidato? @relation(fields: [candidatoId], references: [id])
+
+  @@index([usuarioId])
+  @@index([candidatoId])
+  @@index([entidad, entidadId])
+  @@index([archived])
+}
+
+model Tarea {
+  id            String    @id @default(cuid())
+  titulo        String
+  descripcion   String?
+  prioridad     String    @default("MEDIA") // "BAJA", "MEDIA", "ALTA", "URGENTE"
+  estatus       String    @default("PENDIENTE") // "PENDIENTE", "EN_PROGRESO", "COMPLETADA", "CANCELADA"
+  fechaLimite   DateTime?
+  entidad       String?   // "candidato", "vacante", "entrevista"
+  entidadId     String?
+  asignadoAId   String?
+  creadoPorId   String
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  asignadoA     User?     @relation("TareaAsignado", fields: [asignadoAId], references: [id])
+  creadoPor     User      @relation("TareaCreador", fields: [creadoPorId], references: [id])
+
+  @@index([asignadoAId])
+  @@index([creadoPorId])
+  @@index([estatus])
+  @@index([fechaLimite])
+}
+
+// ====================
+// EMAIL TEMPLATES Y COMUNICACIÓN
+// ====================
+
+model EmailTemplate {
+  id            String    @id @default(cuid())
+  empresaId     String?
+  nombre        String
+  asunto        String
+  cuerpo        String    // HTML del email
+  tipo          String    // "ENTREVISTA", "OFERTA", "RECHAZO", "BIENVENIDA", "SEGUIMIENTO", "CUSTOM"
+  variables     String?   // JSON con las variables disponibles
+  activo        Boolean   @default(true)
+  creadoPorId   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([empresaId])
+  @@index([tipo])
+}
+
+model Comunicacion {
+  id            String    @id @default(cuid())
+  candidatoId   String
+  remitenteId   String
+  tipo          String    // "EMAIL", "LLAMADA", "WHATSAPP", "REUNION"
+  asunto        String?
+  mensaje       String
+  templateId    String?
+  // Para emails
+  emailEnviado  Boolean   @default(false)
+  emailLeido    Boolean   @default(false)
+  leidoEn       DateTime?
+  // Para seguimiento
+  respuestaRecibida Boolean @default(false)
+  respuestaEn   DateTime?
+  notas         String?
+  createdAt     DateTime  @default(now())
+
+  candidato     Candidato @relation(fields: [candidatoId], references: [id])
+
+  @@index([candidatoId])
+  @@index([remitenteId])
+  @@index([tipo])
+  @@index([createdAt])
+}
+
+// ====================
+// EVALUACIONES Y ASSESSMENTS
+// ====================
+
+model Evaluacion {
+  id              String    @id @default(cuid())
+  titulo          String
+  descripcion     String?
+  tipo            String    @default("TECNICA") // "TECNICA", "CULTURA", "PSICOMETRICA", "CUSTOM"
+  duracion        Int?      // Minutos
+  puntajeMaximo   Int       @default(100)
+  puntajeAprobacion Int?    // Puntaje mínimo para aprobar
+  instrucciones   String?
+  activo          Boolean   @default(true)
+  creadoPorId     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  preguntas       PreguntaEvaluacion[]
+  respuestas      RespuestaEvaluacion[]
+
+  @@index([tipo])
+  @@index([activo])
+}
+
+model PreguntaEvaluacion {
+  id              String    @id @default(cuid())
+  evaluacionId    String
+  pregunta        String
+  tipo            String    @default("OPCION_MULTIPLE") // "OPCION_MULTIPLE", "VERDADERO_FALSO", "TEXTO_LIBRE", "ESCALA"
+  opciones        String?   // JSON array para opciones múltiples
+  respuestaCorrecta String?
+  puntaje         Int       @default(1)
+  orden           Int       @default(0)
+  obligatoria     Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  evaluacion      Evaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+
+  @@index([evaluacionId])
+}
+
+model RespuestaEvaluacion {
+  id              String    @id @default(cuid())
+  evaluacionId    String
+  candidatoId     String
+  vacanteId       String?
+  respuestas      String    // JSON con las respuestas
+  puntaje         Int?
+  aprobado        Boolean?
+  tiempoEmpleado  Int?      // Segundos
+  completadoEn    DateTime?
+  revisadoPorId   String?
+  notasRevision   String?
+  createdAt       DateTime  @default(now())
+
+  evaluacion      Evaluacion @relation(fields: [evaluacionId], references: [id])
+  candidato       Candidato  @relation(fields: [candidatoId], references: [id])
+
+  @@unique([evaluacionId, candidatoId])
+  @@index([evaluacionId])
+  @@index([candidatoId])
+}
+
+// ====================
+// SCORECARD
+// ====================
+
+model Scorecard {
+  id                String    @id @default(cuid())
+  nombre            String
+  descripcion       String?
+  vacanteId         String?
+  criterios         String    // JSON array con criterios de evaluación
+  activo            Boolean   @default(true)
+  creadoPorId       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([vacanteId])
+}
+
+model ScorecardRespuesta {
+  id                String    @id @default(cuid())
+  scorecardId       String
+  candidatoId       String
+  evaluadorId       String
+  vacanteId         String?
+  respuestas        String    // JSON con las calificaciones por criterio
+  puntajeTotal      Int?
+  recomendacion     String?   // "CONTRATAR", "CONSIDERAR", "RECHAZAR"
+  comentarios       String?
+  createdAt         DateTime  @default(now())
+
+  candidato         Candidato @relation(fields: [candidatoId], references: [id])
+
+  @@index([scorecardId])
+  @@index([candidatoId])
+  @@index([evaluadorId])
+}
+
+// ====================
+// DEMO KEY SYSTEM
+// ====================
+
+model DemoKey {
+  id              String          @id @default(cuid())
+  key             String          @unique
+  email           String          // Email del solicitante
+  nombre          String?         // Nombre del solicitante
+  empresa         String?         // Empresa del solicitante
+  telefono        String?         // Teléfono de contacto
+  mensaje         String?         // Mensaje adicional de la solicitud
+  estatus         EstatusDemoKey  @default(APROBADA)
+  rolSolicitado   Rol             @default(RECLUTADOR)
+  usadoPor        String?         // ID del usuario que usó la key
+  usadoEn         DateTime?
+  expiresAt       DateTime        // Fecha de expiración de la key
+  aprobadoPorId   String?         // ID del admin que aprobó
+  aprobadoEn      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([key])
+  @@index([email])
+  @@index([estatus])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  tenantId    String?
+  action      String
+  entityType  String
+  entityId    String?
+  before      Json?
+  after       Json?
+  ip          String?
+  userAgent   String?
+  requestId   String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+}
