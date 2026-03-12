@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, ReactNode } from 'react'
+import React, { createContext, useContext, ReactNode } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -63,18 +63,21 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         await queryClient.invalidateQueries({ queryKey: ['actividades'] })
     }
 
+    const contextValue = React.useMemo(() => ({
+        candidatos,
+        vacantes,
+        actividadReciente,
+        loading,
+        refetch: refetchAll
+    }), [candidatos, vacantes, actividadReciente, loading, refetchAll])
+
     return (
-        <DashboardContext.Provider value={{
-            candidatos,
-            vacantes,
-            actividadReciente,
-            loading,
-            refetch: refetchAll
-        }}>
+        <DashboardContext.Provider value={contextValue}>
             {children}
         </DashboardContext.Provider>
     )
 }
+
 
 export const useDashboardData = () => {
     const context = useContext(DashboardContext)
