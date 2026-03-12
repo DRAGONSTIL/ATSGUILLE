@@ -28,8 +28,12 @@ function getLastPathSegment(pathname: string): string {
   return parts[parts.length - 1] || ''
 }
 
-export async function GET(request: NextRequest, context: any) {
+export async function GET(request: NextRequest, props: { params: Promise<{ nextauth: string[] }> }) {
   const tail = getLastPathSegment(request.nextUrl.pathname)
+  const params = await props.params
+
+  // Re-empaquetamos el contexto de manera síncrona para que NextAuth no explote internamente
+  const context = { params }
 
   // Hardening: si por enrutamiento cae en el catch-all, mantener contrato JSON para NextAuth client.
   if (tail === 'session') {
@@ -44,8 +48,11 @@ export async function GET(request: NextRequest, context: any) {
   return handler(request, context)
 }
 
-export async function POST(request: NextRequest, context: any) {
+export async function POST(request: NextRequest, props: { params: Promise<{ nextauth: string[] }> }) {
   const tail = getLastPathSegment(request.nextUrl.pathname)
+  const params = await props.params
+
+  const context = { params }
 
   // Hardening: evitar 500 en /api/auth/_log si este path cae por el catch-all.
   if (tail === '_log') {
