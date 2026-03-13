@@ -26,10 +26,11 @@ import { useGlobalDialogs } from '@/components/layout/global-dialogs'
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { data: session, status } = useSession()
     const { theme, setTheme } = useTheme()
-    const { globalSearch, setGlobalSearch } = useUIStore(useShallow((state) => ({
+    const { globalSearch, setGlobalSearch, sidebarCollapsed, toggleSidebar } = useUIStore(useShallow((state) => ({
         globalSearch: state.busqueda,
         setGlobalSearch: state.setBusqueda,
-        addNotification: state.addNotification
+        sidebarCollapsed: state.sidebarCollapsed,
+        toggleSidebar: state.toggleSidebar,
     })))
     const pathname = usePathname()
     const router = useRouter()
@@ -40,7 +41,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     }, [])
 
     const [sidebarOpen, setSidebarOpen] = useState(false)
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
     const searchInputRef = useRef<HTMLInputElement>(null)
     const [mounted, setMounted] = useState(false)
@@ -50,24 +50,29 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const isPrivilegedUser = session?.user?.rol === 'ADMIN' || session?.user?.rol === 'GERENTE'
 
     const navItems = [
-        { id: 'dashboard', href: '/', label: 'Dashboard', icon: LayoutDashboard, description: 'Resumen y métricas' },
+        { id: 'dashboard', href: '/', label: 'Dashboard', icon: LayoutDashboard, description: 'Resumen y metricas' },
         { id: 'pipeline', href: '/pipeline', label: 'Pipeline', icon: Kanban, description: 'Kanban de candidatos' },
-        { id: 'vacantes', href: '/vacantes', label: 'Vacantes', icon: Briefcase, description: 'Gestión de vacantes' },
+        { id: 'vacantes', href: '/vacantes', label: 'Vacantes', icon: Briefcase, description: 'Gestion de vacantes' },
         { id: 'directorio', href: '/directorio', label: 'Candidatos', icon: Users, description: 'Directorio de candidatos' },
         { id: 'entrevistas', href: '/entrevistas', label: 'Entrevistas', icon: Calendar, description: 'Agenda de entrevistas' },
         { id: 'notas', href: '/notas', label: 'Notas', icon: StickyNote, description: 'Notas y tareas' },
-        { id: 'emails', href: '/emails', label: 'Emails', icon: Mail, description: 'Templates y envíos' },
-        { id: 'evaluaciones', href: '/evaluaciones', label: 'Evaluaciones', icon: ClipboardList, description: 'Evaluaciones técnicas' },
+        { id: 'emails', href: '/emails', label: 'Emails', icon: Mail, description: 'Templates y envios' },
+        { id: 'evaluaciones', href: '/evaluaciones', label: 'Evaluaciones', icon: ClipboardList, description: 'Evaluaciones tecnicas' },
         { id: 'reportes', href: '/reportes', label: 'Reportes', icon: FileBarChart, description: 'Reportes ejecutivos' },
         { id: 'metas', href: '/metas', label: 'Metas', icon: Target, description: 'Objetivos del equipo' },
-        ...(isPrivilegedUser ? [{ id: 'admin', href: '/admin', label: 'Admin', icon: Shield, description: 'Configuración avanzada' }] : []),
+        ...(isPrivilegedUser ? [{ id: 'admin', href: '/admin', label: 'Admin', icon: Shield, description: 'Configuracion avanzada' }] : []),
     ]
 
     const navGroups = [
         { label: 'Principal', items: navItems.slice(0, 4) },
-        { label: 'Gestión', items: navItems.slice(4, 8) },
-        { label: 'Análisis', items: navItems.slice(8) },
+        { label: 'Gestion', items: navItems.slice(4, 8) },
+        { label: 'Analisis', items: navItems.slice(8) },
     ]
+
+    const isNavItemActive = (href: string) => {
+        if (href === '/') return pathname === '/'
+        return pathname === href || pathname.startsWith(`${href}/`)
+    }
 
     useEffect(() => {
         const handler = (event: KeyboardEvent) => {
@@ -123,7 +128,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <TooltipProvider>
             <div className="min-h-screen bg-background flex">
 
-                {/* ── DESKTOP SIDEBAR ────────────────────────────── */}
+                {/* Desktop sidebar */}
                 <aside className={`hidden lg:flex flex-col border-r border-border/50 transition-all duration-300 ease-in-out shrink-0 ${sidebarCollapsed ? 'w-[68px]' : 'w-[240px]'}`}
                     style={{ background: 'hsl(222 18% 8.5%)', position: 'sticky', top: 0, height: '100vh' }}>
 
@@ -181,7 +186,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                 <div className="space-y-0.5">
                                     {group.items.map((item) => {
                                         const Icon = item.icon
-                                        const isActive = pathname === item.href
+                                        const isActive = isNavItemActive(item.href)
                                         return sidebarCollapsed ? (
                                             <Tooltip key={item.id}>
                                                 <TooltipTrigger asChild>
@@ -209,7 +214,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     <div className={`border-t border-border/50 p-3 shrink-0 space-y-2`}>
                         {/* Collapse toggle */}
                         <button
-                            onClick={() => setSidebarCollapsed(c => !c)}
+                            onClick={toggleSidebar}
                             className="sidebar-item w-full justify-center"
                             title={sidebarCollapsed ? 'Expandir' : 'Colapsar'}
                         >
@@ -240,19 +245,19 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                 </div>
                                 {isPrivilegedUser && (
                                     <DropdownMenuItem asChild>
-                                        <Link href="/admin"><Settings className="mr-2 h-4 w-4" /> Configuración</Link>
+                                        <Link href="/admin"><Settings className="mr-2 h-4 w-4" /> Configuracion</Link>
                                     </DropdownMenuItem>
                                 )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => signOut()} className="text-destructive">
-                                    <LogOut className="mr-2 h-4 w-4" /> Cerrar Sesión
+                                    <LogOut className="mr-2 h-4 w-4" /> Cerrar sesion
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
                 </aside>
 
-                {/* ── MAIN CONTENT AREA ──────────────────────────── */}
+                {/* Main content area */}
                 <div className="flex-1 flex flex-col min-w-0 min-h-screen">
 
                     {/* Top Header */}
@@ -287,7 +292,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
                             <div className="flex-1" />
 
-                            {/* ⌘K Command palette */}
+                            {/* Command palette */}
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-9 w-9 hidden md:flex"
@@ -295,7 +300,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                         <Command className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Paleta de comandos (⌘K)</TooltipContent>
+                                <TooltipContent>Paleta de comandos (Ctrl/Cmd + K)</TooltipContent>
                             </Tooltip>
 
                             {/* Notifications */}
@@ -315,7 +320,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                 <TooltipContent>Cambiar tema</TooltipContent>
                             </Tooltip>
 
-                            {/* User menu (header — desktop) */}
+                            {/* User menu (header desktop) */}
                             <div className="hidden lg:block">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -338,12 +343,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                         </div>
                                         {isPrivilegedUser && (
                                             <DropdownMenuItem asChild>
-                                                <Link href="/admin"><Settings className="mr-2 h-4 w-4" /> Configuración</Link>
+                                                <Link href="/admin"><Settings className="mr-2 h-4 w-4" /> Configuracion</Link>
                                             </DropdownMenuItem>
                                         )}
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => signOut()} className="text-destructive">
-                                            <LogOut className="mr-2 h-4 w-4" /> Cerrar Sesión
+                                            <LogOut className="mr-2 h-4 w-4" /> Cerrar sesion
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -362,7 +367,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                         <div className="grid grid-cols-5 gap-0 h-16">
                             {navItems.slice(0, 4).map(item => {
                                 const Icon = item.icon
-                                const isActive = pathname === item.href
+                                const isActive = isNavItemActive(item.href)
                                 return (
                                     <Link key={item.id} href={item.href}
                                         className={`flex flex-col items-center justify-center gap-0.5 py-2 transition-colors ${isActive ? 'text-amber-400' : 'text-muted-foreground hover:text-foreground'}`}>
@@ -375,7 +380,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                 className="flex flex-col items-center justify-center gap-0.5 py-2 text-muted-foreground hover:text-foreground transition-colors"
                                 onClick={() => setSidebarOpen(true)}>
                                 <Menu className="h-5 w-5" />
-                                <span className="text-[10px] font-medium">Más</span>
+                                <span className="text-[10px] font-medium">Mas</span>
                             </button>
                         </div>
                     </nav>
@@ -412,7 +417,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                     <div className="space-y-0.5">
                                         {group.items.map((item) => {
                                             const Icon = item.icon
-                                            const isActive = pathname === item.href
+                                            const isActive = isNavItemActive(item.href)
                                             return (
                                                 <Link key={item.id} href={item.href}
                                                     onClick={() => setSidebarOpen(false)}
