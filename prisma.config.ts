@@ -2,5 +2,8 @@ import { defineConfig } from 'prisma/config'
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
-  seed: 'npm run db:seed',
+  migrations: {
+    path: 'prisma/migrations',
+    seed: 'npm run db:seed',
+  },
 })
