@@ -188,11 +188,11 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
 
   return (
     <AtlasAuthShell
-      eyebrow="Enterprise access orchestration"
-      title="Domina tu entorno de reclutamiento."
-      description="ATLAS GSE concentra seguridad, precisión operativa y lectura ejecutiva del pipeline en una sola superficie de mando. El acceso está restringido a cuentas autorizadas por invitación corporativa."
-      panelTitle="Acceso seguro a tu entorno de reclutamiento"
-      panelDescription="Continúa con tu cuenta autorizada, activa un nuevo acceso invite-only o recupera el control de tu identidad operativa."
+      eyebrow="Luxury ATS access orchestration"
+      title="El ATS premium para operar talento con presencia ejecutiva."
+      description="ATLAS GSE convierte el acceso a reclutamiento en una experiencia de alto nivel: segura, inmersiva y precisa. Cada ingreso abre una superficie de mando pensada para equipos que necesitan control, velocidad y lectura clara del pipeline."
+      panelTitle="Ingresa a tu entorno ATS privado"
+      panelDescription="Continua con tu cuenta autorizada, activa un acceso por invitacion o recupera el control de tu identidad operativa sin salir del flujo principal."
     >
       <div className="space-y-6">
         {(topMessage || alert) && (
@@ -214,7 +214,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
           {[
             ['signin', 'Ingresar'],
             ['activate', 'Activar'],
@@ -228,7 +228,9 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
                 setAlert(null)
               }}
               className={`rounded-[1rem] px-4 py-3 text-sm transition ${
-                mode === value ? 'bg-white text-slate-950 shadow-[0_10px_35px_rgba(255,255,255,0.18)]' : 'text-slate-300 hover:bg-white/5'
+                mode === value
+                  ? 'bg-white text-slate-950 shadow-[0_14px_35px_rgba(255,255,255,0.18)]'
+                  : 'text-slate-300 hover:bg-white/[0.04]'
               }`}
             >
               {label}
@@ -253,7 +255,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
                 <div className="w-full border-t border-white/10" />
               </div>
               <div className="relative flex justify-center">
-                <span className="bg-[#0c1018] px-4 text-[11px] uppercase tracking-[0.28em] text-white/35">o acceso directo</span>
+                <span className="bg-[#0a0d14] px-4 text-[11px] uppercase tracking-[0.28em] text-white/35">o acceso directo</span>
               </div>
             </div>
 
@@ -348,7 +350,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
                     <div className="w-full border-t border-white/10" />
                   </div>
                   <div className="relative flex justify-center">
-                    <span className="bg-[#0c1018] px-4 text-[11px] uppercase tracking-[0.28em] text-white/35">o define credenciales</span>
+                    <span className="bg-[#0a0d14] px-4 text-[11px] uppercase tracking-[0.28em] text-white/35">o define credenciales</span>
                   </div>
                 </div>
 
