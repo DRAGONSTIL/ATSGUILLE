@@ -19,6 +19,40 @@ ALTER TABLE "User"
   ADD COLUMN IF NOT EXISTS "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
   ADD COLUMN IF NOT EXISTS "invitedById" TEXT;
 
+-- Si existen duplicados históricos, hacemos el índice único posible
+-- dejando en NULL los valores repetidos (conserva 1 fila por valor).
+WITH ranked AS (
+  SELECT
+    ctid,
+    "username",
+    row_number() OVER (
+      PARTITION BY "username"
+      ORDER BY "createdAt" ASC NULLS LAST, "id" ASC
+    ) AS rn
+  FROM "User"
+  WHERE "username" IS NOT NULL
+)
+UPDATE "User" u
+SET "username" = NULL
+FROM ranked r
+WHERE u.ctid = r.ctid AND r.rn > 1;
+
+WITH ranked AS (
+  SELECT
+    ctid,
+    "googleId",
+    row_number() OVER (
+      PARTITION BY "googleId"
+      ORDER BY "createdAt" ASC NULLS LAST, "id" ASC
+    ) AS rn
+  FROM "User"
+  WHERE "googleId" IS NOT NULL
+)
+UPDATE "User" u
+SET "googleId" = NULL
+FROM ranked r
+WHERE u.ctid = r.ctid AND r.rn > 1;
+
 CREATE UNIQUE INDEX IF NOT EXISTS "User_username_key" ON "User"("username");
 CREATE UNIQUE INDEX IF NOT EXISTS "User_googleId_key" ON "User"("googleId");
 CREATE INDEX IF NOT EXISTS "User_status_idx" ON "User"("status");
