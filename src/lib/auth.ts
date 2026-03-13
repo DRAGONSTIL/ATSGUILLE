@@ -119,6 +119,7 @@ export const authOptions: NextAuthOptions = {
           rol: user.rol,
           empresaId: user.empresaId,
           equipoId: user.equipoId,
+          status: user.status,
         }
       },
     }),
