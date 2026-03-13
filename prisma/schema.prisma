@@ -171,13 +171,13 @@ model VerificationToken {
 model User {
   id             String        @id @default(cuid())
   email          String        @unique
-  username       String?       @unique
+  username       String?
   name           String?
   imagen         String?
   telefono       String?
   puesto         String?
   passwordHash   String?
-  googleId       String?       @unique
+  googleId       String?
   status         UserStatus    @default(ACTIVE)
   rol            Rol           @default(RECLUTADOR)
   empresaId      String?
@@ -443,7 +443,7 @@ model Invitacion {
   empresaId     String?
   equipoId      String?
   token         String            @unique
-  code          String            @unique
+  code          String?
   mensaje       String?           // Mensaje personalizado
   expiresAt     DateTime
   usedAt        DateTime?
