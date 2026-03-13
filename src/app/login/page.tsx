@@ -1,9 +1,9 @@
 'use client'
 
 import type { FormEvent } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowRight, CheckCircle2, Loader2, LockKeyhole, Mail, Shield, User2 } from 'lucide-react'
 import { AtlasAuthShell } from '@/components/auth/atlas-auth-shell'
 import { Button } from '@/components/ui/button'
@@ -39,7 +39,7 @@ function GoogleMark() {
 
 export default function LoginPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   const [mode, setMode] = useState<'signin' | 'activate' | 'forgot'>('signin')
   const [busy, setBusy] = useState<'google' | 'credentials' | 'validate' | 'activate' | 'forgot' | null>(null)
@@ -50,7 +50,6 @@ export default function LoginPage() {
   const [activateForm, setActivateForm] = useState({ email: '', code: '', name: '', username: '', password: '' })
   const [forgotEmail, setForgotEmail] = useState('')
 
-  const searchError = searchParams.get('error')
   const topMessage = useMemo(() => {
     if (!searchError) {
       return null
@@ -58,6 +57,11 @@ export default function LoginPage() {
 
     return errorMessages[searchError] || 'No fue posible completar el acceso solicitado.'
   }, [searchError])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setSearchError(params.get('error'))
+  }, [])
 
   async function handleGoogleAccess() {
     setBusy('google')
