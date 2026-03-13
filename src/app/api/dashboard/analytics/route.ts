@@ -354,7 +354,6 @@ export async function GET(request: NextRequest) {
           reclutadorId: true,
           equipoId: true,
           reclutador: { select: { id: true, name: true } },
-          equipo: { select: { id: true, nombre: true } },
           metricas: {
             where: {
               createdAt: {
@@ -865,8 +864,10 @@ export async function GET(request: NextRequest) {
     const offersAccepted = currentCandidates.filter((candidate) => Boolean(candidate.fechaOferta && inRange(candidate.fechaOferta, range) && candidate.fechaContratacion)).length
     const offerAcceptanceRatio = offersProvided > 0 ? Number(((offersAccepted / offersProvided) * 100).toFixed(1)) : null
 
+    const teamNames = new Map(filterTeams.map((team) => [team.id, team.nombre]))
+
     const openPositionsByTeam = Array.from(vacancies.reduce<Map<string, { team: string; openPositions: number }>>((accumulator, vacancy) => {
-      const key = vacancy.equipo?.nombre || 'Sin equipo'
+      const key = vacancy.equipoId ? teamNames.get(vacancy.equipoId) || 'Sin equipo' : 'Sin equipo'
       const current = accumulator.get(key) || { team: key, openPositions: 0 }
       if (vacancy.estatus === 'PUBLICADA') {
         current.openPositions += Math.max(0, vacancy.vacantes - vacancy.vacantesLlenas)
