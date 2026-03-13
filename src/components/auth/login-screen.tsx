@@ -194,7 +194,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
       panelTitle="Ingresa a tu entorno ATS privado"
       panelDescription="Continua con tu cuenta autorizada, activa un acceso por invitacion o recupera el control de tu identidad operativa sin salir del flujo principal."
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
         {(topMessage || alert) && (
           <div
             className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${
@@ -214,7 +214,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+        <div className="grid grid-cols-3 gap-1.5 rounded-[1.15rem] border border-white/10 bg-black/20 p-1">
           {[
             ['signin', 'Ingresar'],
             ['activate', 'Activar'],
@@ -227,7 +227,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
                 setMode(value as 'signin' | 'activate' | 'forgot')
                 setAlert(null)
               }}
-              className={`rounded-[1rem] px-4 py-3 text-sm transition ${
+              className={`rounded-[0.9rem] px-3 py-2.5 text-[13px] transition ${
                 mode === value
                   ? 'bg-white text-slate-950 shadow-[0_14px_35px_rgba(255,255,255,0.18)]'
                   : 'text-slate-300 hover:bg-white/[0.04]'
@@ -239,18 +239,18 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
         </div>
 
         {mode === 'signin' && (
-          <div className="space-y-5 animate-fade-in">
+          <div className="space-y-4 animate-fade-in">
             <Button
               type="button"
               onClick={handleGoogleAccess}
               disabled={busy !== null}
-              className="h-14 w-full rounded-2xl border border-white/10 bg-white text-slate-950 hover:bg-white/90"
+              className="h-12 w-full rounded-[1.1rem] border border-white/10 bg-white text-slate-950 hover:bg-white/90"
             >
               {busy === 'google' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleMark />}
               <span className="ml-3">Continuar con Google</span>
             </Button>
 
-            <div className="relative py-1">
+            <div className="relative py-0.5">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-white/10" />
               </div>
@@ -261,32 +261,32 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
 
             <form className="space-y-4" onSubmit={handleCredentialAccess}>
               <label className="block space-y-2">
-                <span className="text-xs uppercase tracking-[0.25em] text-white/45">Correo o usuario</span>
+                <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Correo o usuario</span>
                 <div className="relative">
                   <User2 className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
                   <Input
                     value={signInForm.identifier}
                     onChange={(event) => setSignInForm((current) => ({ ...current, identifier: event.target.value }))}
-                    className="h-14 rounded-2xl border-white/10 bg-white/[0.04] pl-11 text-white placeholder:text-white/25"
+                    className="h-12 rounded-[1.1rem] border-white/10 bg-white/[0.04] pl-11 text-white placeholder:text-white/25"
                     placeholder="nombre@empresa.com o usuario"
                   />
                 </div>
               </label>
               <label className="block space-y-2">
-                <span className="text-xs uppercase tracking-[0.25em] text-white/45">Contraseña</span>
+                <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Contraseña</span>
                 <div className="relative">
                   <LockKeyhole className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
                   <Input
                     type="password"
                     value={signInForm.password}
                     onChange={(event) => setSignInForm((current) => ({ ...current, password: event.target.value }))}
-                    className="h-14 rounded-2xl border-white/10 bg-white/[0.04] pl-11 text-white placeholder:text-white/25"
+                    className="h-12 rounded-[1.1rem] border-white/10 bg-white/[0.04] pl-11 text-white placeholder:text-white/25"
                     placeholder="Tu contraseña segura"
                   />
                 </div>
               </label>
 
-              <Button type="submit" disabled={busy !== null} className="h-14 w-full rounded-2xl btn-gold text-base">
+              <Button type="submit" disabled={busy !== null} className="h-12 w-full rounded-[1.1rem] btn-gold text-[15px]">
                 {busy === 'credentials' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Shield className="mr-2 h-4 w-4" />}
                 Ingresar
               </Button>
@@ -295,33 +295,33 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
         )}
 
         {mode === 'activate' && (
-          <div className="space-y-5 animate-fade-in">
+          <div className="space-y-4 animate-fade-in">
             {!invitation ? (
               <form className="space-y-4" onSubmit={handleValidateInvitation}>
                 <label className="block space-y-2">
-                  <span className="text-xs uppercase tracking-[0.25em] text-white/45">Correo invitado</span>
+                  <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Correo invitado</span>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
                     <Input
                       type="email"
                       value={activateForm.email}
                       onChange={(event) => setActivateForm((current) => ({ ...current, email: event.target.value }))}
-                      className="h-14 rounded-2xl border-white/10 bg-white/[0.04] pl-11 text-white placeholder:text-white/25"
+                      className="h-12 rounded-[1.1rem] border-white/10 bg-white/[0.04] pl-11 text-white placeholder:text-white/25"
                       placeholder="correo autorizado"
                     />
                   </div>
                 </label>
                 <label className="block space-y-2">
-                  <span className="text-xs uppercase tracking-[0.25em] text-white/45">Código de invitación</span>
+                  <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Código de invitación</span>
                   <Input
                     value={activateForm.code}
                     onChange={(event) => setActivateForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))}
-                    className="h-14 rounded-2xl border-white/10 bg-white/[0.04] font-mono tracking-[0.24em] text-white placeholder:text-white/20"
+                    className="h-12 rounded-[1.1rem] border-white/10 bg-white/[0.04] font-mono tracking-[0.2em] text-white placeholder:text-white/20"
                     placeholder="ATLAS-XXXX-XXXX-XXXX"
                   />
                 </label>
 
-                <Button type="submit" disabled={busy !== null} className="h-14 w-full rounded-2xl btn-gold text-base">
+                <Button type="submit" disabled={busy !== null} className="h-12 w-full rounded-[1.1rem] btn-gold text-[15px]">
                   {busy === 'validate' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
                   Continuar
                 </Button>
@@ -339,13 +339,13 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
                   type="button"
                   onClick={handleGoogleAccess}
                   disabled={busy !== null}
-                  className="h-14 w-full rounded-2xl border border-white/10 bg-white text-slate-950 hover:bg-white/90"
+                  className="h-12 w-full rounded-[1.1rem] border border-white/10 bg-white text-slate-950 hover:bg-white/90"
                 >
                   {busy === 'google' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleMark />}
                   <span className="ml-3">Vincular con Google</span>
                 </Button>
 
-                <div className="relative py-1">
+                <div className="relative py-0.5">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-white/10" />
                   </div>
@@ -358,26 +358,26 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
                   <Input
                     value={activateForm.name}
                     onChange={(event) => setActivateForm((current) => ({ ...current, name: event.target.value }))}
-                    className="h-14 rounded-2xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/25"
+                    className="h-12 rounded-[1.1rem] border-white/10 bg-white/[0.04] text-white placeholder:text-white/25"
                     placeholder="Nombre completo"
                   />
                   <Input
                     value={activateForm.username}
                     onChange={(event) => setActivateForm((current) => ({ ...current, username: event.target.value }))}
-                    className="h-14 rounded-2xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/25"
+                    className="h-12 rounded-[1.1rem] border-white/10 bg-white/[0.04] text-white placeholder:text-white/25"
                     placeholder="Usuario corporativo opcional"
                   />
                   <Input
                     type="password"
                     value={activateForm.password}
                     onChange={(event) => setActivateForm((current) => ({ ...current, password: event.target.value }))}
-                    className="h-14 rounded-2xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/25"
+                    className="h-12 rounded-[1.1rem] border-white/10 bg-white/[0.04] text-white placeholder:text-white/25"
                     placeholder="Crea una contraseña robusta"
                   />
-                  <p className="text-xs leading-6 text-slate-400">
+                  <p className="text-[12px] leading-5 text-slate-400">
                     Debe incluir mínimo 10 caracteres, mayúsculas, minúsculas, número y carácter especial.
                   </p>
-                  <Button type="submit" disabled={busy !== null} className="h-14 w-full rounded-2xl btn-gold text-base">
+                  <Button type="submit" disabled={busy !== null} className="h-12 w-full rounded-[1.1rem] btn-gold text-[15px]">
                     {busy === 'activate' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Shield className="mr-2 h-4 w-4" />}
                     Activar acceso corporativo
                   </Button>
@@ -390,20 +390,20 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
         {mode === 'forgot' && (
           <form className="space-y-4 animate-fade-in" onSubmit={handleForgotPassword}>
             <label className="block space-y-2">
-              <span className="text-xs uppercase tracking-[0.25em] text-white/45">Correo corporativo</span>
+              <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Correo corporativo</span>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
                 <Input
                   type="email"
                   value={forgotEmail}
                   onChange={(event) => setForgotEmail(event.target.value)}
-                  className="h-14 rounded-2xl border-white/10 bg-white/[0.04] pl-11 text-white placeholder:text-white/25"
+                  className="h-12 rounded-[1.1rem] border-white/10 bg-white/[0.04] pl-11 text-white placeholder:text-white/25"
                   placeholder="correo autorizado"
                 />
               </div>
             </label>
 
-            <Button type="submit" disabled={busy !== null} className="h-14 w-full rounded-2xl btn-gold text-base">
+            <Button type="submit" disabled={busy !== null} className="h-12 w-full rounded-[1.1rem] btn-gold text-[15px]">
               {busy === 'forgot' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
               Enviar enlace seguro
             </Button>
