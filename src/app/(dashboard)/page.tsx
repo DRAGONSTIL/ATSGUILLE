@@ -1,87 +1,76 @@
 'use client'
 
-import { useDeferredValue, useMemo, useState } from 'react'
+import { type ReactNode, useDeferredValue, useMemo, useState } from 'react'
 import type { DateRange } from 'react-day-picker'
 import { format, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
 import { Cormorant_Garamond } from 'next/font/google'
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
   Cell,
+  Pie,
+  PieChart as RechartsPieChart,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
 } from 'recharts'
-import {
-  Activity,
-  BriefcaseBusiness,
-  CalendarRange,
-  Loader2,
-  Sparkles,
-  Target,
-  TrendingUp,
-  UserRoundSearch,
-  Users,
-} from 'lucide-react'
+import { CalendarRange, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
 type DashboardResponse = {
   generatedAt: string
-  range: { preset: 'day' | 'week' | 'month' | 'year' | 'custom'; label: string }
+  range: {
+    preset: 'day' | 'week' | 'month' | 'year' | 'custom'
+    from: string
+    to: string
+    label: string
+    granularity: 'day' | 'week' | 'month'
+  }
   filterOptions: {
     recruiters: Array<{ id: string; name: string }>
     teams: Array<{ id: string; name: string }>
     branches: Array<{ value: string; label: string }>
   }
-  summary: {
-    pipelineEntries: { value: number; change: number }
-    hires: { value: number; change: number }
-    interviewsCompleted: { value: number; change: number }
-    offersSent: { value: number; change: number }
-    timeToHireDays: { value: number | null; change: number }
-    openPositions: { openRoles: number; openSeats: number }
-    conversionRate: { value: number; change: number }
-    rejectionRate: { value: number }
-  }
-  charts: {
-    trend: Array<{ label: string; candidates: number; interviews: number; hires: number; offers: number }>
-    funnel: Array<{ key: string; label: string; count: number; share: number }>
-    sourcePerformance: Array<{ source: string; candidates: number; hires: number; conversionRate: number }>
-    recruiterPerformance: Array<{ id: string; name: string; candidates: number; interviews: number; hires: number; conversionRate: number }>
-    teamPerformance: Array<{ id: string; name: string; candidates: number; interviews: number; hires: number; conversionRate: number }>
-    branchPerformance: Array<{ branch: string; candidates: number; openPositions: number; hires: number; conversionRate: number }>
-  }
-  tables: {
-    vacancyPipeline: Array<{
-      id: string
-      title: string
-      branch: string
-      recruiter: string
-      openSeats: number
+  dashboard: {
+    topMetrics: {
+      hired: number
+      appsPerHire: number | null
+      daysToHire: number | null
+      costPerHire: number | null
+      openPositions: number
+      daysInMarket: number | null
+    }
+    recruitmentFunnel: Array<{ key: string; label: string; count: number; share: number }>
+    monthlyMetrics: Array<{ key: string; month: string; hires: number; daysToHire: number | null }>
+    pipelineEfficiency: {
+      totalDays: number | null
+      stages: Array<{ key: string; label: string; days: number }>
+    }
+    applicationSources: Array<{
+      source: string
       candidates: number
-      interviews: number
-      offers: number
       hires: number
+      shareOfHires: number
+      conversionRate: number
     }>
+    declineReasons: Array<{ reason: string; count: number; share: number }>
+    activePipeline: {
+      totalPending: number
+      stages: Array<{ key: string; label: string; count: number; color: string }>
+    }
   }
-  recentActivity: Array<{ id: string; descripcion: string; createdAt: string; usuario?: { name: string | null } | null }>
-  dataNotes: { branchDefinition: string; stageDefinition: string }
 }
 
-const COLORS = ['#f2d48d', '#7bb4ff', '#35d6c1', '#f59e0b', '#ef4444']
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-auth-display',
+})
+
 const SOURCE_LABELS: Record<string, string> = {
   LINKEDIN: 'LinkedIn',
   OCC: 'OCC',
@@ -94,45 +83,40 @@ const SOURCE_LABELS: Record<string, string> = {
   OTRO: 'Otra',
 }
 
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-auth-display',
-})
+const PIE_COLORS = ['#1565c0', '#26a69a', '#7cb342', '#f4a300', '#ef5350']
 
-function metric(value: number | null, suffix = '') {
-  if (value === null) return 'N/A'
-  return `${value.toLocaleString('es-MX')}${suffix}`
+function metricValue(value: number | null, mode: 'integer' | 'decimal' | 'plain' = 'integer') {
+  if (value === null) return '--'
+  if (mode === 'decimal') return value.toFixed(1)
+  if (mode === 'plain') return value.toLocaleString('es-MX')
+  return Math.round(value).toLocaleString('es-MX')
 }
 
-function delta(change: number) {
-  return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`
-}
-
-function Kpi({ title, value, detail, change, icon: Icon }: { title: string; value: string; detail: string; change?: number; icon: typeof Sparkles }) {
+function SectionCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <article className="relative overflow-hidden rounded-[1.3rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] p-3.5 shadow-[0_18px_56px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f2d48d]/70 to-transparent" />
-      <div className="flex items-start justify-between gap-3">
-        <div className="rounded-[0.9rem] border border-white/10 bg-black/20 p-2"><Icon className="h-3.5 w-3.5 text-[#f2d48d]" /></div>
-        {typeof change === 'number' ? <Badge className={cn('border-0 px-1.5 py-0.5 text-[9px]', change >= 0 ? 'bg-emerald-500/12 text-emerald-300' : 'bg-red-500/12 text-red-300')}>{delta(change)}</Badge> : null}
+    <section className="relative rounded-[1.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.26)]">
+      <div className="pointer-events-none absolute left-5 top-0 -translate-y-1/2 rounded-md border border-white/10 bg-[#101521] px-3 py-1 text-[11px] text-white/68">
+        {title}
       </div>
-      <p className="mt-3 text-[10px] uppercase tracking-[0.24em] text-white/34">{title}</p>
-      <p className="mt-1.5 font-[family:var(--font-auth-display)] text-[clamp(1.65rem,2vw,2.3rem)] leading-none tracking-[-0.045em] text-white">{value}</p>
-      <p className="mt-1 text-[11px] leading-5 text-white/48">{detail}</p>
-    </article>
+      {children}
+    </section>
   )
 }
 
-function Panel({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function TopMetric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
-    <section className="relative overflow-hidden rounded-[1.55rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,17,28,0.88),rgba(8,11,18,0.96))] p-4 shadow-[0_28px_84px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      <p className="text-[10px] uppercase tracking-[0.28em] text-white/30">Overview</p>
-      <h2 className="mt-2 font-[family:var(--font-auth-display)] text-[1.65rem] leading-[0.96] tracking-[-0.03em] text-white">{title}</h2>
-      {description ? <p className="mt-1.5 max-w-[56ch] text-[12px] leading-5 text-white/50">{description}</p> : null}
-      <div className="mt-4">{children}</div>
-    </section>
+    <article className="flex flex-col items-center gap-2 rounded-[1rem] border border-white/10 bg-white/[0.03] px-3 py-4 text-center">
+      <div
+        className={cn(
+          'flex h-12 min-w-[4.5rem] items-center justify-center px-3 text-[1.45rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
+          accent ? 'bg-[#1565c0]' : 'bg-[#3a3f49]'
+        )}
+        style={{ clipPath: 'polygon(0 0,100% 0,100% 78%,50% 100%,0 78%)' }}
+      >
+        {value}
+      </div>
+      <p className="text-[12px] text-white/72">{label}</p>
+    </article>
   )
 }
 
@@ -172,211 +156,278 @@ export default function DashboardPage() {
   })
 
   if (isLoading && !data) {
-    return <div className="h-[28rem] rounded-[2rem] skeleton" />
+    return <div className="h-[28rem] rounded-[1.5rem] skeleton" />
   }
 
   if (isError || !data) {
-    return <div className="rounded-[1.8rem] border border-red-500/20 bg-red-500/10 p-6 text-sm text-red-100">No fue posible cargar el dashboard ejecutivo.</div>
+    return <div className="rounded-[1.4rem] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">No fue posible cargar el dashboard.</div>
   }
 
+  const top = data.dashboard.topMetrics
+  const monthlyHiresMax = Math.max(1, ...data.dashboard.monthlyMetrics.map((item) => item.hires))
+  const monthlyTimeMax = Math.max(1, ...data.dashboard.monthlyMetrics.map((item) => item.daysToHire || 0))
+  const funnelBase = Math.max(1, data.dashboard.recruitmentFunnel[0]?.count || 0)
+  const sourceConvMax = Math.max(1, ...data.dashboard.applicationSources.map((item) => item.conversionRate))
+  const declineMax = Math.max(1, ...data.dashboard.declineReasons.map((item) => item.count))
+  const recruiterLabel = recruiterId === 'all'
+    ? 'Todos los reclutadores'
+    : data.filterOptions.recruiters.find((item) => item.id === recruiterId)?.name || 'Reclutador'
+  const teamLabel = teamId === 'all'
+    ? 'Todos los equipos'
+    : data.filterOptions.teams.find((item) => item.id === teamId)?.name || 'Equipo'
+  const branchLabel = branch === 'all'
+    ? 'Todas las sucursales'
+    : data.filterOptions.branches.find((item) => item.value === branch)?.label || branch
+
   return (
-    <div className={cn('space-y-5', cormorant.variable)}>
-      <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(123,180,255,0.16),transparent_28%),radial-gradient(circle_at_12%_20%,rgba(242,212,141,0.12),transparent_22%),linear-gradient(180deg,rgba(9,13,23,0.96),rgba(5,8,14,0.98))] p-5 shadow-[0_30px_100px_rgba(0,0,0,0.34)]">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:88px_88px] opacity-[0.07]" />
-        <div className="relative grid gap-5 xl:grid-cols-[0.88fr_1.12fr]">
-          <div className="max-w-[34rem]">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[9px] uppercase tracking-[0.32em] text-white/56"><Sparkles className="h-3 w-3 text-[#f2d48d]" />Live view</div>
-            <h1 className="mt-4 font-[family:var(--font-auth-display)] text-[clamp(2.2rem,4vw,3.9rem)] leading-[0.88] tracking-[-0.05em] text-white">Dashboard</h1>
-            <div className="mt-4 flex flex-wrap gap-2">
+    <div className={cn('space-y-4', cormorant.variable)}>
+      <section className="rounded-[1.45rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(123,180,255,0.12),transparent_28%),linear-gradient(180deg,rgba(10,14,22,0.96),rgba(6,8,14,0.98))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.3)]">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="space-y-2">
+            <h1 className="font-[family:var(--font-auth-display)] text-[clamp(1.9rem,2.8vw,2.9rem)] leading-none tracking-[-0.04em] text-white">
+              Recruitment Funnel and Application Source Dashboard
+            </h1>
+            <div className="flex flex-wrap gap-2">
               <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">{data.range.label}</Badge>
-              <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">Auto refresh 30s</Badge>
               <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">Sync {format(new Date(data.generatedAt), 'HH:mm:ss', { locale: es })}</Badge>
+              <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">Auto refresh 30s</Badge>
             </div>
           </div>
 
-          <div className="rounded-[1.55rem] border border-white/10 bg-black/20 p-3.5 backdrop-blur-2xl">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.28em] text-white/38">Filters</p>
-                <p className="mt-1.5 font-[family:var(--font-auth-display)] text-[1.35rem] leading-[0.96] tracking-[-0.03em] text-white">Periodo, reclutador, equipo, sucursal.</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">Periodo</p>
+              <div className="flex gap-2">
+                <Select value={preset} onValueChange={(value) => setPreset(value as typeof preset)}>
+                  <SelectTrigger className="h-10 min-w-[11rem] rounded-[0.9rem] border-white/10 bg-white/[0.04] text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="day">Dia actual</SelectItem>
+                    <SelectItem value="week">Semana actual</SelectItem>
+                    <SelectItem value="month">Mes actual</SelectItem>
+                    <SelectItem value="year">Ano actual</SelectItem>
+                    <SelectItem value="custom">Periodo custom</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-10 rounded-[0.9rem] border-white/10 bg-white/[0.04] px-3 text-white hover:bg-white/[0.08]">
+                      <CalendarRange className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto border-white/10 bg-[#0b1018] p-0 text-white">
+                    <Calendar
+                      mode="range"
+                      selected={customRange}
+                      onSelect={(rangeValue) => {
+                        setCustomRange(rangeValue)
+                        if (rangeValue?.from && rangeValue?.to) setPreset('custom')
+                      }}
+                      numberOfMonths={2}
+                      defaultMonth={customRange?.from}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
-              {isFetching ? <Loader2 className="h-4 w-4 animate-spin text-[#f2d48d]" /> : null}
             </div>
-            <div className="mt-4 grid gap-3 xl:grid-cols-4">
-              <div className="space-y-2">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">Periodo</p>
-                <div className="flex gap-2">
-                  <Select value={preset} onValueChange={(value) => setPreset(value as typeof preset)}>
-                    <SelectTrigger className="h-10 w-full rounded-[0.9rem] border-white/10 bg-white/[0.04] text-white"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="day">Dia actual</SelectItem>
-                      <SelectItem value="week">Semana actual</SelectItem>
-                      <SelectItem value="month">Mes actual</SelectItem>
-                      <SelectItem value="year">Ano actual</SelectItem>
-                      <SelectItem value="custom">Periodo custom</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="h-10 rounded-[0.9rem] border-white/10 bg-white/[0.04] px-3 text-white hover:bg-white/[0.08]"><CalendarRange className="h-4 w-4" /></Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto border-white/10 bg-[#0b1018] p-0 text-white">
-                      <Calendar
-                        mode="range"
-                        selected={customRange}
-                        onSelect={(rangeValue) => {
-                          setCustomRange(rangeValue)
-                          if (rangeValue?.from && rangeValue?.to) setPreset('custom')
-                        }}
-                        numberOfMonths={2}
-                        defaultMonth={customRange?.from}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              <SelectField label="Reclutador" value={recruiterId} onChange={setRecruiterId} allLabel="Todos los reclutadores" options={data.filterOptions.recruiters.map((option) => ({ value: option.id, label: option.name }))} />
-              <SelectField label="Equipo" value={teamId} onChange={setTeamId} allLabel="Todos los equipos" options={data.filterOptions.teams.map((option) => ({ value: option.id, label: option.name }))} />
-              <SelectField label="Sucursal" value={branch} onChange={setBranch} allLabel="Todas las sucursales" options={data.filterOptions.branches} />
-            </div>
+            <SelectField
+              label="Reclutador"
+              value={recruiterId}
+              onChange={setRecruiterId}
+              allLabel="Todos"
+              options={data.filterOptions.recruiters.map((option) => ({ value: option.id, label: option.name }))}
+            />
+            <SelectField
+              label="Equipo"
+              value={teamId}
+              onChange={setTeamId}
+              allLabel="Todos"
+              options={data.filterOptions.teams.map((option) => ({ value: option.id, label: option.name }))}
+            />
+            <SelectField
+              label="Sucursal"
+              value={branch}
+              onChange={setBranch}
+              allLabel="Todas"
+              options={data.filterOptions.branches}
+            />
           </div>
         </div>
       </section>
 
-      <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <Kpi title="Pipeline" value={metric(data.summary.pipelineEntries.value)} detail={`${delta(data.summary.pipelineEntries.change)} vs previo`} change={data.summary.pipelineEntries.change} icon={Users} />
-        <Kpi title="Hires" value={metric(data.summary.hires.value)} detail={`${delta(data.summary.hires.change)} vs previo`} change={data.summary.hires.change} icon={Target} />
-        <Kpi title="Interviews" value={metric(data.summary.interviewsCompleted.value)} detail={`${delta(data.summary.interviewsCompleted.change)} vs previo`} change={data.summary.interviewsCompleted.change} icon={UserRoundSearch} />
-        <Kpi title="Offers" value={metric(data.summary.offersSent.value)} detail={`${delta(data.summary.offersSent.change)} vs previo`} change={data.summary.offersSent.change} icon={TrendingUp} />
-        <Kpi title="Time to hire" value={metric(data.summary.timeToHireDays.value, ' dias')} detail={data.summary.timeToHireDays.value === null ? 'Sin muestra' : `${delta(data.summary.timeToHireDays.change)} vs previo`} change={data.summary.timeToHireDays.value === null ? undefined : data.summary.timeToHireDays.change} icon={Sparkles} />
-        <Kpi title="Open seats" value={metric(data.summary.openPositions.openSeats)} detail={`${data.summary.openPositions.openRoles} roles activos`} icon={BriefcaseBusiness} />
-      </div>
+      <section className="rounded-[1.45rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,16,25,0.98),rgba(8,10,16,0.98))] p-4 shadow-[0_30px_90px_rgba(0,0,0,0.34)]">
+        <div className="rounded-[0.9rem] border border-white/10 bg-white/[0.03] px-4 py-2 text-center text-[11px] text-white/64">
+          {data.range.label} / {recruiterLabel} / {teamLabel} / {branchLabel}
+          {isFetching ? <Loader2 className="ml-2 inline h-3.5 w-3.5 animate-spin text-[#f2d48d]" /> : null}
+        </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.28fr_0.92fr]">
-        <Panel title="Tendencia" description="Pipeline / entrevistas / offers / hires">
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.charts.trend} margin={{ left: -18, right: 12, top: 8, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradEntries" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#7bb4ff" stopOpacity={0.34} />
-                    <stop offset="95%" stopColor="#7bb4ff" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradHires" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f2d48d" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#f2d48d" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-                <XAxis dataKey="label" stroke="rgba(255,255,255,0.34)" tick={{ fontSize: 11 }} />
-                <YAxis stroke="rgba(255,255,255,0.34)" tick={{ fontSize: 11 }} />
-                <RechartsTooltip contentStyle={{ backgroundColor: '#0d121d', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '16px', color: '#f8fafc' }} />
-                <Area type="monotone" dataKey="candidates" name="Ingresos" stroke="#7bb4ff" strokeWidth={2.1} fill="url(#gradEntries)" />
-                <Area type="monotone" dataKey="hires" name="Contrataciones" stroke="#f2d48d" strokeWidth={2.1} fill="url(#gradHires)" />
-                <Bar dataKey="interviews" name="Entrevistas" fill="#35d6c1" radius={[6, 6, 0, 0]} barSize={16} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <TopMetric label="Hired" value={metricValue(top.hired)} />
+          <TopMetric label="Apps Per Hire" value={metricValue(top.appsPerHire, 'decimal')} />
+          <TopMetric label="Days to Hire" value={metricValue(top.daysToHire, 'integer')} />
+          <TopMetric label="Cost Per Hire" value={metricValue(top.costPerHire, 'plain')} />
+          <TopMetric label="Open Positions" value={metricValue(top.openPositions)} accent />
+          <TopMetric label="Days in MKT" value={metricValue(top.daysInMarket, 'integer')} accent />
+        </div>
 
-        <Panel title="Embudo">
-          <div className="space-y-3">
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.charts.funnel} layout="vertical" margin={{ left: 18, right: 12, top: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
-                  <XAxis type="number" stroke="rgba(255,255,255,0.34)" tick={{ fontSize: 11 }} />
-                  <YAxis type="category" dataKey="label" width={90} stroke="rgba(255,255,255,0.34)" tick={{ fontSize: 11 }} />
-                  <RechartsTooltip contentStyle={{ backgroundColor: '#0d121d', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '16px', color: '#f8fafc' }} />
-                  <Bar dataKey="count" radius={[0, 12, 12, 0]}>
-                    {data.charts.funnel.map((entry, index) => <Cell key={entry.key} fill={COLORS[index % COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <MiniStat label="Conversion" value={`${data.summary.conversionRate.value}%`} detail="Pipeline to hire" />
-              <MiniStat label="Rechazo" value={`${data.summary.rejectionRate.value}%`} detail="Cohorte descartada" />
-            </div>
-          </div>
-        </Panel>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[1.02fr_0.98fr]">
-        <Panel title="Fuentes">
-          <div className="space-y-3">
-            {data.charts.sourcePerformance.length === 0 ? (
-              <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-5 text-sm text-white/56">Sin fuentes registradas para el periodo filtrado.</div>
-            ) : data.charts.sourcePerformance.map((source) => (
-              <div key={source.source} className="rounded-[1.05rem] border border-white/8 bg-white/[0.03] p-3.5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[13px] text-white">{SOURCE_LABELS[source.source] || source.source}</p>
-                    <p className="mt-1 text-[11px] text-white/48">{source.candidates} pipeline / {source.hires} hires</p>
+        <div className="mt-5 grid gap-4 xl:grid-cols-3">
+          <SectionCard title="Recruitment Funnel">
+            <div className="space-y-3">
+              {data.dashboard.recruitmentFunnel.map((stage) => (
+                <div key={stage.key} className="grid grid-cols-[6.8rem_1fr_auto] items-center gap-3">
+                  <p className="text-[13px] text-white/74">{stage.label}</p>
+                  <div className="relative h-7 overflow-hidden rounded-sm bg-white/6">
+                    <div
+                      className="flex h-full items-center justify-end rounded-sm bg-[linear-gradient(90deg,#1565c0,#1e88e5)] pr-2 text-[11px] font-medium text-white"
+                      style={{ width: `${Math.max((stage.count / funnelBase) * 100, stage.count > 0 ? 12 : 0)}%` }}
+                    >
+                      {stage.share}%
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-[family:var(--font-auth-display)] text-[1.45rem] leading-none tracking-[-0.03em] text-[#f2d48d]">{source.conversionRate}%</p>
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/34">conv</p>
-                  </div>
+                  <p className="w-10 text-right text-[12px] text-white/62">{stage.count}</p>
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/6"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7bb4ff,#f2d48d)]" style={{ width: `${Math.min(100, source.conversionRate)}%` }} /></div>
-              </div>
-            ))}
-          </div>
-        </Panel>
-
-        <Panel title="Breakdown">
-          <Tabs defaultValue="recruiters" className="gap-4">
-            <TabsList className="h-10 rounded-[1rem] border border-white/10 bg-white/[0.04] p-1">
-              <TabsTrigger value="recruiters" className="rounded-[0.85rem] data-[state=active]:bg-white/10">Reclutadores</TabsTrigger>
-              <TabsTrigger value="teams" className="rounded-[0.85rem] data-[state=active]:bg-white/10">Equipos</TabsTrigger>
-              <TabsTrigger value="branches" className="rounded-[0.85rem] data-[state=active]:bg-white/10">Sucursales</TabsTrigger>
-            </TabsList>
-            <TabsContent value="recruiters"><BreakdownTable headers={['Reclutador', 'Ingresos', 'Entrevistas', 'Hires', 'Conversion']} rows={data.charts.recruiterPerformance.map((item) => [item.name, `${item.candidates}`, `${item.interviews}`, `${item.hires}`, `${item.conversionRate}%`])} /></TabsContent>
-            <TabsContent value="teams"><BreakdownTable headers={['Equipo', 'Ingresos', 'Entrevistas', 'Hires', 'Conversion']} rows={data.charts.teamPerformance.map((item) => [item.name, `${item.candidates}`, `${item.interviews}`, `${item.hires}`, `${item.conversionRate}%`])} /></TabsContent>
-            <TabsContent value="branches"><BreakdownTable headers={['Sucursal', 'Ingresos', 'Posiciones', 'Hires', 'Conversion']} rows={data.charts.branchPerformance.map((item) => [item.branch, `${item.candidates}`, `${item.openPositions}`, `${item.hires}`, `${item.conversionRate}%`])} /></TabsContent>
-          </Tabs>
-        </Panel>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[1.22fr_0.78fr]">
-        <Panel title="Vacantes">
-          <Table>
-            <TableHeader><TableRow className="border-white/8 hover:bg-transparent"><TableHead className="text-white/56">Vacante</TableHead><TableHead className="text-white/56">Sucursal</TableHead><TableHead className="text-white/56">Asientos</TableHead><TableHead className="text-white/56">Ingresos</TableHead><TableHead className="text-white/56">Entrevistas</TableHead><TableHead className="text-white/56">Ofertas</TableHead><TableHead className="text-white/56">Hires</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {data.tables.vacancyPipeline.map((vacancy) => (
-                <TableRow key={vacancy.id} className="border-white/8 hover:bg-white/[0.03]">
-                  <TableCell className="max-w-[18rem] whitespace-normal text-white"><div><p className="font-medium">{vacancy.title}</p><p className="mt-1 text-[12px] text-white/42">{vacancy.recruiter}</p></div></TableCell>
-                  <TableCell className="text-white/64">{vacancy.branch}</TableCell>
-                  <TableCell className="text-white/82">{vacancy.openSeats}</TableCell>
-                  <TableCell className="text-white/82">{vacancy.candidates}</TableCell>
-                  <TableCell className="text-white/82">{vacancy.interviews}</TableCell>
-                  <TableCell className="text-white/82">{vacancy.offers}</TableCell>
-                  <TableCell className="font-semibold text-[#f2d48d]">{vacancy.hires}</TableCell>
-                </TableRow>
               ))}
-            </TableBody>
-          </Table>
-        </Panel>
+            </div>
+          </SectionCard>
 
-        <Panel title="Actividad">
-          <div className="space-y-3">
-            {data.recentActivity.length === 0 ? (
-              <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4 text-sm text-white/56">No hubo actividad reciente dentro del filtro activo.</div>
-            ) : data.recentActivity.map((activity) => (
-              <div key={activity.id} className="rounded-[1.05rem] border border-white/8 bg-white/[0.03] p-3.5">
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 rounded-full border border-white/10 bg-black/20 p-2"><Activity className="h-3.5 w-3.5 text-[#7bb4ff]" /></div>
-                  <div className="min-w-0">
-                    <p className="text-[13px] leading-5 text-white">{activity.descripcion}</p>
-                    <p className="mt-1 text-[11px] text-white/42">{activity.usuario?.name || 'Sistema'} / {format(new Date(activity.createdAt), 'dd MMM yyyy HH:mm', { locale: es })}</p>
+          <SectionCard title="Monthly Metrics (Past 12 Months)">
+            <div className="grid grid-cols-[4.3rem_1fr_1fr] gap-3 text-[11px] uppercase tracking-[0.16em] text-white/42">
+              <span>Month</span>
+              <span>Hired</span>
+              <span>Days to Hire</span>
+            </div>
+            <div className="mt-3 space-y-2.5">
+              {data.dashboard.monthlyMetrics.map((item) => (
+                <div key={item.key} className="grid grid-cols-[4.3rem_1fr_1fr] items-center gap-3">
+                  <span className="text-[12px] text-white/68">{item.month}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 flex-1 overflow-hidden rounded-sm bg-white/6">
+                      <div className="h-full bg-[#1565c0]" style={{ width: `${(item.hires / monthlyHiresMax) * 100}%` }} />
+                    </div>
+                    <span className="w-6 text-[12px] text-white/74">{item.hires}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 flex-1 overflow-hidden rounded-sm bg-white/6">
+                      <div className="h-full bg-[#26a69a]" style={{ width: `${((item.daysToHire || 0) / monthlyTimeMax) * 100}%` }} />
+                    </div>
+                    <span className="w-8 text-[12px] text-white/74">{item.daysToHire === null ? '--' : item.daysToHire}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Pipeline Efficiency of Hiring">
+            {data.dashboard.pipelineEfficiency.stages.length === 0 ? (
+              <div className="flex h-48 items-center justify-center text-sm text-white/46">Sin base suficiente para cycle time.</div>
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-[1fr_12rem]">
+                <div className="space-y-2 pt-2">
+                  {data.dashboard.pipelineEfficiency.stages.map((stage, index) => (
+                    <div key={stage.key} className="flex items-center gap-2 text-[13px] text-white/72">
+                      <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
+                      <span className="flex-1">{stage.label}</span>
+                      <span>{stage.days}d</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="relative h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPieChart>
+                      <Pie
+                        data={data.dashboard.pipelineEfficiency.stages}
+                        dataKey="days"
+                        nameKey="label"
+                        innerRadius={42}
+                        outerRadius={68}
+                        paddingAngle={2}
+                      >
+                        {data.dashboard.pipelineEfficiency.stages.map((stage, index) => (
+                          <Cell key={stage.key} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        formatter={(value: number) => [`${value} dias`, '']}
+                        contentStyle={{ backgroundColor: '#0d121d', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', color: '#f8fafc' }}
+                      />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="font-[family:var(--font-auth-display)] text-[2.1rem] leading-none tracking-[-0.04em] text-white">{metricValue(data.dashboard.pipelineEfficiency.totalDays)}</span>
+                    <span className="mt-1 text-[11px] uppercase tracking-[0.2em] text-white/42">days</span>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </Panel>
-      </div>
+            )}
+          </SectionCard>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+          <SectionCard title="Application Sources">
+            <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] gap-2 text-[11px] uppercase tracking-[0.16em] text-white/42">
+              <span>Source</span>
+              <span># Hired</span>
+              <span>% of Hired</span>
+              <span>Conv Rate</span>
+            </div>
+            <div className="mt-3 space-y-2.5">
+              {data.dashboard.applicationSources.length === 0 ? (
+                <div className="py-10 text-center text-sm text-white/46">Sin fuentes en el periodo.</div>
+              ) : data.dashboard.applicationSources.map((item) => (
+                <div key={item.source} className="grid grid-cols-[1fr_3.5rem_4rem_4rem] items-center gap-2">
+                  <span className="truncate text-[13px] text-white/76">{SOURCE_LABELS[item.source] || item.source}</span>
+                  <span className="text-[12px] text-white/72">{item.hires}</span>
+                  <span className="text-[12px] text-white/72">{item.shareOfHires}%</span>
+                  <div className="space-y-1">
+                    <span className="text-[12px] text-white/72">{item.conversionRate}%</span>
+                    <div className="h-2 overflow-hidden rounded-sm bg-white/6">
+                      <div className="h-full bg-[linear-gradient(90deg,#1565c0,#1e88e5)]" style={{ width: `${(item.conversionRate / sourceConvMax) * 100}%` }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Decline Reasons">
+            <div className="grid grid-cols-[1fr_3.5rem_4rem] gap-2 text-[11px] uppercase tracking-[0.16em] text-white/42">
+              <span>Reason</span>
+              <span># Apps</span>
+              <span>%</span>
+            </div>
+            <div className="mt-3 space-y-2.5">
+              {data.dashboard.declineReasons.length === 0 ? (
+                <div className="py-10 text-center text-sm text-white/46">Sin rechazos con motivo en el periodo.</div>
+              ) : data.dashboard.declineReasons.map((item) => (
+                <div key={item.reason} className="grid grid-cols-[1fr_3.5rem_4rem] items-center gap-2">
+                  <div className="space-y-1">
+                    <span className="block truncate text-[13px] text-white/76">{item.reason}</span>
+                    <div className="h-2 overflow-hidden rounded-sm bg-white/6">
+                      <div className="h-full bg-[#26a69a]" style={{ width: `${(item.count / declineMax) * 100}%` }} />
+                    </div>
+                  </div>
+                  <span className="text-[12px] text-white/72">{item.count}</span>
+                  <span className="text-[12px] text-white/72">{item.share}%</span>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard title={`Active Pipeline   ${data.dashboard.activePipeline.totalPending} Pending`}>
+            <div className="grid grid-cols-5 gap-1.5 pt-4">
+              {data.dashboard.activePipeline.stages.map((stage) => (
+                <div key={stage.key} className="overflow-hidden rounded-[0.8rem] border border-white/10 bg-white/[0.03]">
+                  <div className="flex h-16 items-center justify-center text-[2rem] font-[family:var(--font-auth-display)] text-white" style={{ backgroundColor: stage.color }}>
+                    {stage.count}
+                  </div>
+                  <div className="px-2 py-2 text-center text-[11px] leading-4 text-white/72">{stage.label}</div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+      </section>
     </div>
   )
 }
@@ -396,47 +447,20 @@ function SelectField({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">{label}</p>
+      <p className="text-[10px] uppercase tracking-[0.24em] text-white/42">{label}</p>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-10 w-full rounded-[0.9rem] border-white/10 bg-white/[0.04] text-white"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-10 min-w-[10rem] rounded-[0.9rem] border-white/10 bg-white/[0.04] text-white">
+          <SelectValue />
+        </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{allLabel}</SelectItem>
-          {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>
-  )
-}
-
-function MiniStat({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="rounded-[1rem] border border-white/8 bg-black/20 p-3.5">
-      <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">{label}</p>
-      <p className="mt-1.5 font-[family:var(--font-auth-display)] text-[1.55rem] leading-none tracking-[-0.04em] text-white">{value}</p>
-      <p className="mt-1.5 text-[11px] leading-5 text-white/52">{detail}</p>
-    </div>
-  )
-}
-
-function BreakdownTable({ headers, rows }: { headers: [string, string, string, string, string]; rows: string[][] }) {
-  if (rows.length === 0) {
-    return <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4 text-sm text-white/56">No hay datos en esta vista para el filtro activo.</div>
-  }
-
-  return (
-    <Table>
-      <TableHeader><TableRow className="border-white/8 hover:bg-transparent">{headers.map((header) => <TableHead key={header} className="text-white/52">{header}</TableHead>)}</TableRow></TableHeader>
-      <TableBody>
-        {rows.map((row) => (
-          <TableRow key={row.join('-')} className="border-white/8 hover:bg-white/[0.03]">
-            <TableCell className="whitespace-normal text-white">{row[0]}</TableCell>
-            <TableCell className="text-white/72">{row[1]}</TableCell>
-            <TableCell className="text-white/72">{row[2]}</TableCell>
-            <TableCell className="text-white/72">{row[3]}</TableCell>
-            <TableCell className="font-semibold text-[#f2d48d]">{row[4]}</TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
   )
 }

@@ -14,6 +14,7 @@ import {
   startOfWeek,
   startOfYear,
   subDays,
+  subMonths,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { z } from 'zod'
@@ -98,6 +99,32 @@ function avg(values: number[]) {
   }
 
   return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1))
+}
+
+function diffDaysSafe(later: Date | null | undefined, earlier: Date | null | undefined) {
+  if (!later || !earlier) {
+    return null
+  }
+
+  return Math.max(0, differenceInCalendarDays(later, earlier))
+}
+
+function normalizeInterviewStage(tipo: string | null | undefined) {
+  const normalized = (tipo || '').toUpperCase()
+
+  if (normalized.includes('TELEF')) {
+    return 'PHONE'
+  }
+
+  if (normalized.includes('PRESENC')) {
+    return 'ONSITE'
+  }
+
+  if (normalized.includes('VIDEO') || normalized.includes('TECN')) {
+    return 'INTERVIEW'
+  }
+
+  return 'INTERVIEW'
 }
 
 function groupKeyForDate(date: Date, granularity: 'day' | 'week' | 'month') {
@@ -257,7 +284,6 @@ export async function GET(request: NextRequest) {
 
     const interviewScopeWhere: Record<string, unknown> = {
       fecha: {
-        gte: range.previousFrom,
         lte: range.to,
       },
       candidato: interviewCandidateScope,
@@ -296,6 +322,7 @@ export async function GET(request: NextRequest) {
           fechaOferta: true,
           fechaContratacion: true,
           fechaRechazo: true,
+          motivoRechazo: true,
           vacanteId: true,
           reclutadorId: true,
           equipoId: true,
@@ -327,6 +354,19 @@ export async function GET(request: NextRequest) {
           reclutadorId: true,
           equipoId: true,
           reclutador: { select: { id: true, name: true } },
+          metricas: {
+            where: {
+              createdAt: {
+                lte: range.to,
+              },
+            },
+            select: {
+              costoContratacion: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 12,
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -335,6 +375,7 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           fecha: true,
+          tipo: true,
           estatus: true,
           candidatoId: true,
           vacanteId: true,
@@ -376,6 +417,41 @@ export async function GET(request: NextRequest) {
     const previousTimeToHire = previousHires
       .map((candidate) => candidate.fechaContratacion ? differenceInCalendarDays(candidate.fechaContratacion, candidate.createdAt) : null)
       .filter((value): value is number => value !== null)
+
+    const interviewsByCandidate = interviews.reduce<Map<string, Array<(typeof interviews)[number]>>>((accumulator, interview) => {
+      const existing = accumulator.get(interview.candidatoId) || []
+      existing.push(interview)
+      accumulator.set(interview.candidatoId, existing)
+      return accumulator
+    }, new Map())
+
+    for (const candidateInterviews of interviewsByCandidate.values()) {
+      candidateInterviews.sort((left, right) => left.fecha.getTime() - right.fecha.getTime())
+    }
+
+    const candidateMilestones = new Map<string, {
+      phoneDate: Date | null
+      interviewDate: Date | null
+      onsiteDate: Date | null
+      anyInterviewDate: Date | null
+    }>()
+
+    for (const candidate of candidates) {
+      const candidateInterviews = interviewsByCandidate.get(candidate.id) || []
+      const anyInterview = candidateInterviews[0]?.fecha || null
+      const phoneInterview = candidateInterviews.find((interview) => normalizeInterviewStage(interview.tipo) === 'PHONE')?.fecha || null
+      const interviewStage = candidateInterviews.find((interview) => normalizeInterviewStage(interview.tipo) === 'INTERVIEW')?.fecha || null
+      const onsiteInterview = candidateInterviews.find((interview) => normalizeInterviewStage(interview.tipo) === 'ONSITE')?.fecha || null
+
+      candidateMilestones.set(candidate.id, {
+        phoneDate: phoneInterview || anyInterview,
+        interviewDate: interviewStage || onsiteInterview || null,
+        onsiteDate: onsiteInterview,
+        anyInterviewDate: anyInterview,
+      })
+    }
+
+    const activeCandidates = candidates.filter((candidate) => candidate.estatus !== 'CONTRATADO' && candidate.estatus !== 'RECHAZADO')
 
     const funnelStages = [
       { key: 'REGISTRADO', label: 'Registrados' },
@@ -617,6 +693,172 @@ export async function GET(request: NextRequest) {
     const openRoles = vacancies.filter((vacancy) => vacancy.estatus === 'PUBLICADA').length
     const conversionRate = currentCandidates.length > 0 ? Number(((currentHires.length / currentCandidates.length) * 100).toFixed(1)) : 0
     const previousConversionRate = previousCandidates.length > 0 ? Number(((previousHires.length / previousCandidates.length) * 100).toFixed(1)) : 0
+    const appsPerHire = currentHires.length > 0 ? Number((currentCandidates.length / currentHires.length).toFixed(1)) : null
+
+    const costPerHireSamples = vacancies
+      .filter((vacancy) => (hiresByVacancy[vacancy.id] || 0) > 0)
+      .map((vacancy) => vacancy.metricas.find((metric) => metric.costoContratacion !== null)?.costoContratacion ?? null)
+      .filter((value): value is number => value !== null)
+
+    const daysInMarketSamples = vacancies
+      .filter((vacancy) => vacancy.estatus === 'PUBLICADA')
+      .map((vacancy) => diffDaysSafe(range.to, vacancy.fechaPublicacion || vacancy.createdAt))
+      .filter((value): value is number => value !== null)
+
+    const funnelReference = [
+      {
+        key: 'APPLICATION',
+        label: 'Application',
+        count: currentCandidates.length,
+      },
+      {
+        key: 'PHONE_SCREEN',
+        label: 'Phone Screen',
+        count: currentCandidates.filter((candidate) => {
+          const milestones = candidateMilestones.get(candidate.id)
+          return Boolean(milestones?.phoneDate || milestones?.anyInterviewDate)
+        }).length,
+      },
+      {
+        key: 'INTERVIEW',
+        label: 'MGR Interview',
+        count: currentCandidates.filter((candidate) => Boolean(candidateMilestones.get(candidate.id)?.interviewDate)).length,
+      },
+      {
+        key: 'ONSITE',
+        label: 'Onsite Interview',
+        count: currentCandidates.filter((candidate) => Boolean(candidateMilestones.get(candidate.id)?.onsiteDate)).length,
+      },
+      {
+        key: 'OFFER',
+        label: 'Offer',
+        count: currentCandidates.filter((candidate) => Boolean(candidate.fechaOferta && candidate.fechaOferta <= range.to)).length,
+      },
+      {
+        key: 'HIRE',
+        label: 'Hire',
+        count: currentHires.length,
+      },
+    ].map((stage) => ({
+      ...stage,
+      share: currentCandidates.length > 0 ? Number(((stage.count / currentCandidates.length) * 100).toFixed(1)) : 0,
+    }))
+
+    const monthlyMetrics = eachMonthOfInterval({
+      start: startOfMonth(subMonths(range.to, 11)),
+      end: startOfMonth(range.to),
+    }).map((monthDate) => {
+      const monthRange = {
+        from: startOfMonth(monthDate),
+        to: endOfMonth(monthDate),
+      }
+
+      const hires = candidates.filter((candidate) => inRange(candidate.fechaContratacion, monthRange))
+      const monthTimeToHire = hires
+        .map((candidate) => diffDaysSafe(candidate.fechaContratacion, candidate.createdAt))
+        .filter((value): value is number => value !== null)
+
+      return {
+        key: format(monthDate, 'yyyy-MM-01'),
+        month: format(monthDate, 'MMM yy', { locale: es }),
+        hires: hires.length,
+        daysToHire: avg(monthTimeToHire),
+      }
+    })
+
+    const efficiencyBuckets = {
+      application: [] as number[],
+      phone: [] as number[],
+      interview: [] as number[],
+      onsite: [] as number[],
+      offer: [] as number[],
+    }
+
+    for (const candidate of currentHires) {
+      const milestones = candidateMilestones.get(candidate.id)
+      const startToPhone = diffDaysSafe(milestones?.phoneDate || milestones?.interviewDate || milestones?.onsiteDate || candidate.fechaOferta || candidate.fechaContratacion, candidate.createdAt)
+      const phoneToInterview = diffDaysSafe(milestones?.interviewDate || milestones?.onsiteDate || candidate.fechaOferta || candidate.fechaContratacion, milestones?.phoneDate)
+      const interviewToOnsite = diffDaysSafe(milestones?.onsiteDate || candidate.fechaOferta || candidate.fechaContratacion, milestones?.interviewDate)
+      const onsiteToOffer = diffDaysSafe(candidate.fechaOferta || candidate.fechaContratacion, milestones?.onsiteDate)
+      const offerToHire = diffDaysSafe(candidate.fechaContratacion, candidate.fechaOferta)
+
+      if (startToPhone !== null) efficiencyBuckets.application.push(startToPhone)
+      if (phoneToInterview !== null) efficiencyBuckets.phone.push(phoneToInterview)
+      if (interviewToOnsite !== null) efficiencyBuckets.interview.push(interviewToOnsite)
+      if (onsiteToOffer !== null) efficiencyBuckets.onsite.push(onsiteToOffer)
+      if (offerToHire !== null) efficiencyBuckets.offer.push(offerToHire)
+    }
+
+    const pipelineEfficiency = [
+      { key: 'application', label: 'Application', days: avg(efficiencyBuckets.application) ?? 0 },
+      { key: 'phone', label: 'Phone Screen', days: avg(efficiencyBuckets.phone) ?? 0 },
+      { key: 'interview', label: 'MGR Interview', days: avg(efficiencyBuckets.interview) ?? 0 },
+      { key: 'onsite', label: 'Onsite Interview', days: avg(efficiencyBuckets.onsite) ?? 0 },
+      { key: 'offer', label: 'Offer', days: avg(efficiencyBuckets.offer) ?? 0 },
+    ].filter((stage) => stage.days > 0)
+
+    const declineReasons = Array.from(currentRejections.reduce<Map<string, number>>((accumulator, candidate) => {
+      const key = candidate.motivoRechazo?.trim() || 'Sin motivo'
+      accumulator.set(key, (accumulator.get(key) || 0) + 1)
+      return accumulator
+    }, new Map()).entries())
+      .map(([reason, count]) => ({
+        reason,
+        count,
+        share: currentRejections.length > 0 ? Number(((count / currentRejections.length) * 100).toFixed(1)) : 0,
+      }))
+      .sort((left, right) => right.count - left.count)
+      .slice(0, 5)
+
+    const applicationSources = Array.from(currentCandidates.reduce<Map<string, { source: string; candidates: number; hires: number }>>((accumulator, candidate) => {
+      const key = candidate.fuente
+      const current = accumulator.get(key) || { source: key, candidates: 0, hires: 0 }
+      current.candidates += 1
+      if (candidate.fechaContratacion && inRange(candidate.fechaContratacion, range)) {
+        current.hires += 1
+      }
+      accumulator.set(key, current)
+      return accumulator
+    }, new Map()).values())
+      .map((item) => ({
+        source: item.source,
+        candidates: item.candidates,
+        hires: item.hires,
+        shareOfHires: currentHires.length > 0 ? Number(((item.hires / currentHires.length) * 100).toFixed(1)) : 0,
+        conversionRate: item.candidates > 0 ? Number(((item.hires / item.candidates) * 100).toFixed(1)) : 0,
+      }))
+      .sort((left, right) => right.hires - left.hires || right.candidates - left.candidates)
+      .slice(0, 5)
+
+    const activePipelineMap = new Map([
+      ['APPLICATION', { key: 'APPLICATION', label: 'Application', count: 0, color: '#1565c0' }],
+      ['PHONE', { key: 'PHONE', label: 'Phone Screen', count: 0, color: '#00897b' }],
+      ['INTERVIEW', { key: 'INTERVIEW', label: 'MGR Interview', count: 0, color: '#7cb342' }],
+      ['ONSITE', { key: 'ONSITE', label: 'Onsite Interview', count: 0, color: '#f4a300' }],
+      ['OFFER', { key: 'OFFER', label: 'Offer', count: 0, color: '#ef5350' }],
+    ])
+
+    for (const candidate of activeCandidates) {
+      const milestones = candidateMilestones.get(candidate.id)
+      let stageKey = 'APPLICATION'
+
+      if (candidate.fechaOferta && !candidate.fechaContratacion && !candidate.fechaRechazo) {
+        stageKey = 'OFFER'
+      } else if (milestones?.onsiteDate) {
+        stageKey = 'ONSITE'
+      } else if (milestones?.interviewDate) {
+        stageKey = 'INTERVIEW'
+      } else if (milestones?.phoneDate || milestones?.anyInterviewDate) {
+        stageKey = 'PHONE'
+      }
+
+      const stage = activePipelineMap.get(stageKey)
+      if (stage) {
+        stage.count += 1
+      }
+    }
+
+    const activePipeline = Array.from(activePipelineMap.values())
 
     return NextResponse.json({
       generatedAt: new Date().toISOString(),
@@ -680,6 +922,15 @@ export async function GET(request: NextRequest) {
         rejectionRate: {
           value: currentCandidates.length > 0 ? Number(((currentRejections.length / currentCandidates.length) * 100).toFixed(1)) : 0,
         },
+        appsPerHire: {
+          value: appsPerHire,
+        },
+        costPerHire: {
+          value: avg(costPerHireSamples),
+        },
+        daysInMarket: {
+          value: avg(daysInMarketSamples),
+        },
       },
       charts: {
         trend: Array.from(trendMap.values()),
@@ -688,6 +939,28 @@ export async function GET(request: NextRequest) {
         recruiterPerformance,
         teamPerformance,
         branchPerformance,
+      },
+      dashboard: {
+        topMetrics: {
+          hired: currentHires.length,
+          appsPerHire,
+          daysToHire: avg(currentTimeToHire),
+          costPerHire: avg(costPerHireSamples),
+          openPositions: openRoles,
+          daysInMarket: avg(daysInMarketSamples),
+        },
+        recruitmentFunnel: funnelReference,
+        monthlyMetrics,
+        pipelineEfficiency: {
+          totalDays: avg(currentTimeToHire),
+          stages: pipelineEfficiency,
+        },
+        applicationSources,
+        declineReasons,
+        activePipeline: {
+          totalPending: activeCandidates.length,
+          stages: activePipeline,
+        },
       },
       tables: {
         vacancyPipeline,
