@@ -194,10 +194,10 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
       panelTitle="Ingresa a tu entorno ATS privado"
       panelDescription="Continua con tu cuenta autorizada, activa un acceso por invitacion o recupera el control de tu identidad operativa sin salir del flujo principal."
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         {(topMessage || alert) && (
           <div
-            className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${
+            className={`rounded-[1.1rem] border px-4 py-2.5 text-[13px] leading-5 ${
               (alert?.type || 'error') === 'error'
                 ? 'border-red-400/20 bg-red-500/10 text-red-100'
                 : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
@@ -214,7 +214,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-1.5 rounded-[1.15rem] border border-white/10 bg-black/20 p-1">
+        <div className="grid grid-cols-3 gap-1.5 rounded-[1.05rem] border border-white/10 bg-black/20 p-1">
           {[
             ['signin', 'Ingresar'],
             ['activate', 'Activar'],
@@ -260,7 +260,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
             </div>
 
             <form className="space-y-4" onSubmit={handleCredentialAccess}>
-              <label className="block space-y-2">
+              <label className="block space-y-1.5">
                 <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Correo o usuario</span>
                 <div className="relative">
                   <User2 className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
@@ -272,7 +272,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
                   />
                 </div>
               </label>
-              <label className="block space-y-2">
+              <label className="block space-y-1.5">
                 <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Contraseña</span>
                 <div className="relative">
                   <LockKeyhole className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
@@ -297,8 +297,8 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
         {mode === 'activate' && (
           <div className="space-y-4 animate-fade-in">
             {!invitation ? (
-              <form className="space-y-4" onSubmit={handleValidateInvitation}>
-                <label className="block space-y-2">
+              <form className="space-y-3.5" onSubmit={handleValidateInvitation}>
+                <label className="block space-y-1.5">
                   <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Correo invitado</span>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
@@ -311,7 +311,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
                     />
                   </div>
                 </label>
-                <label className="block space-y-2">
+                <label className="block space-y-1.5">
                   <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Código de invitación</span>
                   <Input
                     value={activateForm.code}
@@ -328,7 +328,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
               </form>
             ) : (
               <div className="space-y-5">
-                <div className="rounded-[1.5rem] border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                <div className="rounded-[1.25rem] border border-emerald-400/20 bg-emerald-500/10 p-3.5 text-[13px] text-emerald-100">
                   <p className="font-medium">Invitación validada</p>
                   <p className="mt-1 text-emerald-100/80">
                     Correo autorizado: {invitation.email}. Empresa: {invitation.empresa?.nombre || 'ATLAS GSE'}.
@@ -354,7 +354,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
                   </div>
                 </div>
 
-                <form className="space-y-4" onSubmit={handleActivateWithPassword}>
+                <form className="space-y-3.5" onSubmit={handleActivateWithPassword}>
                   <Input
                     value={activateForm.name}
                     onChange={(event) => setActivateForm((current) => ({ ...current, name: event.target.value }))}
@@ -389,7 +389,7 @@ export function LoginScreen({ searchError }: { searchError?: string }) {
 
         {mode === 'forgot' && (
           <form className="space-y-4 animate-fade-in" onSubmit={handleForgotPassword}>
-            <label className="block space-y-2">
+            <label className="block space-y-1.5">
               <span className="text-[11px] uppercase tracking-[0.22em] text-white/45">Correo corporativo</span>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
