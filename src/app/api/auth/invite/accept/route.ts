@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const normalizedUsername = payload.username ? normalizeUsername(payload.username) : null
     if (normalizedUsername) {
-      const usernameOwner = await db.user.findUnique({ where: { username: normalizedUsername } })
+      const usernameOwner = await db.user.findFirst({ where: { username: normalizedUsername } })
       if (usernameOwner && usernameOwner.email !== normalizedEmail) {
         return NextResponse.json({ error: 'El usuario solicitado ya está asignado a otra cuenta.' }, { status: 400 })
       }

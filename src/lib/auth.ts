@@ -92,7 +92,7 @@ export const authOptions: NextAuthOptions = {
 
         const user = identifier.includes('@')
           ? await db.user.findUnique({ where: { email: normalizeEmail(identifier) } })
-          : await db.user.findUnique({ where: { username: normalizeUsername(identifier) } })
+          : await db.user.findFirst({ where: { username: normalizeUsername(identifier) } })
 
         if (!user) {
           throw new Error('INVALID_CREDENTIALS')
