@@ -111,27 +111,27 @@ function delta(change: number) {
 
 function Kpi({ title, value, detail, change, icon: Icon }: { title: string; value: string; detail: string; change?: number; icon: typeof Sparkles }) {
   return (
-    <article className="relative overflow-hidden rounded-[1.65rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-5 shadow-[0_26px_90px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
+    <article className="relative overflow-hidden rounded-[1.3rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] p-3.5 shadow-[0_18px_56px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f2d48d]/70 to-transparent" />
       <div className="flex items-start justify-between gap-3">
-        <div className="rounded-[1rem] border border-white/10 bg-black/20 p-3"><Icon className="h-4 w-4 text-[#f2d48d]" /></div>
-        {typeof change === 'number' ? <Badge className={cn('border-0 px-2 py-1 text-[11px]', change >= 0 ? 'bg-emerald-500/12 text-emerald-300' : 'bg-red-500/12 text-red-300')}>{delta(change)}</Badge> : null}
+        <div className="rounded-[0.9rem] border border-white/10 bg-black/20 p-2"><Icon className="h-3.5 w-3.5 text-[#f2d48d]" /></div>
+        {typeof change === 'number' ? <Badge className={cn('border-0 px-1.5 py-0.5 text-[9px]', change >= 0 ? 'bg-emerald-500/12 text-emerald-300' : 'bg-red-500/12 text-red-300')}>{delta(change)}</Badge> : null}
       </div>
-      <p className="mt-5 text-[10px] uppercase tracking-[0.3em] text-white/36">{title}</p>
-      <p className="mt-2 font-[family:var(--font-auth-display)] text-[2.3rem] leading-none tracking-[-0.05em] text-white">{value}</p>
-      <p className="mt-2 text-[13px] leading-6 text-white/56">{detail}</p>
+      <p className="mt-3 text-[10px] uppercase tracking-[0.24em] text-white/34">{title}</p>
+      <p className="mt-1.5 font-[family:var(--font-auth-display)] text-[clamp(1.65rem,2vw,2.3rem)] leading-none tracking-[-0.045em] text-white">{value}</p>
+      <p className="mt-1 text-[11px] leading-5 text-white/48">{detail}</p>
     </article>
   )
 }
 
-function Panel({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function Panel({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <section className="relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,17,28,0.88),rgba(8,11,18,0.96))] p-5 shadow-[0_32px_100px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
+    <section className="relative overflow-hidden rounded-[1.55rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,17,28,0.88),rgba(8,11,18,0.96))] p-4 shadow-[0_28px_84px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      <p className="text-[10px] uppercase tracking-[0.32em] text-white/34">Executive view</p>
-      <h2 className="mt-2 font-[family:var(--font-auth-display)] text-[2rem] leading-[0.94] tracking-[-0.03em] text-white">{title}</h2>
-      <p className="mt-2 max-w-[60ch] text-[13px] leading-6 text-white/56">{description}</p>
-      <div className="mt-5">{children}</div>
+      <p className="text-[10px] uppercase tracking-[0.28em] text-white/30">Overview</p>
+      <h2 className="mt-2 font-[family:var(--font-auth-display)] text-[1.65rem] leading-[0.96] tracking-[-0.03em] text-white">{title}</h2>
+      {description ? <p className="mt-1.5 max-w-[56ch] text-[12px] leading-5 text-white/50">{description}</p> : null}
+      <div className="mt-4">{children}</div>
     </section>
   )
 }
@@ -165,6 +165,10 @@ export default function DashboardPage() {
       return response.json()
     },
     placeholderData: (previous) => previous,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   })
 
   if (isLoading && !data) {
@@ -176,34 +180,34 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className={cn('space-y-6', cormorant.variable)}>
-      <section className="relative overflow-hidden rounded-[2.2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(123,180,255,0.18),transparent_28%),radial-gradient(circle_at_12%_20%,rgba(242,212,141,0.14),transparent_22%),linear-gradient(180deg,rgba(9,13,23,0.96),rgba(5,8,14,0.98))] p-6 shadow-[0_38px_120px_rgba(0,0,0,0.36)]">
+    <div className={cn('space-y-5', cormorant.variable)}>
+      <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(123,180,255,0.16),transparent_28%),radial-gradient(circle_at_12%_20%,rgba(242,212,141,0.12),transparent_22%),linear-gradient(180deg,rgba(9,13,23,0.96),rgba(5,8,14,0.98))] p-5 shadow-[0_30px_100px_rgba(0,0,0,0.34)]">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:88px_88px] opacity-[0.07]" />
-        <div className="relative grid gap-6 xl:grid-cols-[1.04fr_0.96fr]">
-          <div className="max-w-[52rem]">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[10px] uppercase tracking-[0.32em] text-white/56"><Sparkles className="h-3.5 w-3.5 text-[#f2d48d]" />Recruitment Intelligence</div>
-            <h1 className="mt-5 font-[family:var(--font-auth-display)] text-[clamp(2.8rem,5vw,5rem)] leading-[0.88] tracking-[-0.05em] text-white">Dashboard corporativo con logica real y filtros ejecutivos.</h1>
-            <p className="mt-4 max-w-[58ch] text-[15px] leading-7 text-slate-300">La lectura activa cubre <span className="text-white">{data.range.label}</span>. El dashboard recalcula sobre candidatos, vacantes, entrevistas y actividad operativa del tenant sin usar datos simulados.</p>
-            <div className="mt-5 flex flex-wrap gap-2.5">
-              <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium text-white/72">{data.dataNotes.branchDefinition}</Badge>
-              <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium text-white/72">{data.dataNotes.stageDefinition}</Badge>
+        <div className="relative grid gap-5 xl:grid-cols-[0.88fr_1.12fr]">
+          <div className="max-w-[34rem]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[9px] uppercase tracking-[0.32em] text-white/56"><Sparkles className="h-3 w-3 text-[#f2d48d]" />Live view</div>
+            <h1 className="mt-4 font-[family:var(--font-auth-display)] text-[clamp(2.2rem,4vw,3.9rem)] leading-[0.88] tracking-[-0.05em] text-white">Dashboard</h1>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">{data.range.label}</Badge>
+              <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">Auto refresh 30s</Badge>
+              <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">Sync {format(new Date(data.generatedAt), 'HH:mm:ss', { locale: es })}</Badge>
             </div>
           </div>
 
-          <div className="rounded-[1.8rem] border border-white/10 bg-black/20 p-4 backdrop-blur-2xl">
+          <div className="rounded-[1.55rem] border border-white/10 bg-black/20 p-3.5 backdrop-blur-2xl">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.32em] text-white/38">Control filters</p>
-                <p className="mt-2 font-[family:var(--font-auth-display)] text-[1.85rem] leading-[0.96] tracking-[-0.03em] text-white">Periodo, reclutador, equipo y sucursal.</p>
+                <p className="text-[10px] uppercase tracking-[0.28em] text-white/38">Filters</p>
+                <p className="mt-1.5 font-[family:var(--font-auth-display)] text-[1.35rem] leading-[0.96] tracking-[-0.03em] text-white">Periodo, reclutador, equipo, sucursal.</p>
               </div>
               {isFetching ? <Loader2 className="h-4 w-4 animate-spin text-[#f2d48d]" /> : null}
             </div>
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <div className="mt-4 grid gap-3 xl:grid-cols-4">
               <div className="space-y-2">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">Periodo</p>
                 <div className="flex gap-2">
                   <Select value={preset} onValueChange={(value) => setPreset(value as typeof preset)}>
-                    <SelectTrigger className="h-11 w-full rounded-[1rem] border-white/10 bg-white/[0.04] text-white"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10 w-full rounded-[0.9rem] border-white/10 bg-white/[0.04] text-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="day">Dia actual</SelectItem>
                       <SelectItem value="week">Semana actual</SelectItem>
@@ -214,7 +218,7 @@ export default function DashboardPage() {
                   </Select>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="h-11 rounded-[1rem] border-white/10 bg-white/[0.04] px-3 text-white hover:bg-white/[0.08]"><CalendarRange className="h-4 w-4" /></Button>
+                      <Button variant="outline" className="h-10 rounded-[0.9rem] border-white/10 bg-white/[0.04] px-3 text-white hover:bg-white/[0.08]"><CalendarRange className="h-4 w-4" /></Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto border-white/10 bg-[#0b1018] p-0 text-white">
                       <Calendar
@@ -239,18 +243,18 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <Kpi title="Ingresos a pipeline" value={metric(data.summary.pipelineEntries.value)} detail={`${delta(data.summary.pipelineEntries.change)} contra periodo comparable`} change={data.summary.pipelineEntries.change} icon={Users} />
-        <Kpi title="Contrataciones" value={metric(data.summary.hires.value)} detail={`${delta(data.summary.hires.change)} en hires`} change={data.summary.hires.change} icon={Target} />
-        <Kpi title="Entrevistas realizadas" value={metric(data.summary.interviewsCompleted.value)} detail={`${delta(data.summary.interviewsCompleted.change)} vs tramo anterior`} change={data.summary.interviewsCompleted.change} icon={UserRoundSearch} />
-        <Kpi title="Ofertas emitidas" value={metric(data.summary.offersSent.value)} detail={`${delta(data.summary.offersSent.change)} en ofertas`} change={data.summary.offersSent.change} icon={TrendingUp} />
-        <Kpi title="Time to hire" value={metric(data.summary.timeToHireDays.value, ' dias')} detail={data.summary.timeToHireDays.value === null ? 'Sin contrataciones suficientes en el periodo.' : `${delta(data.summary.timeToHireDays.change)} contra periodo comparable`} change={data.summary.timeToHireDays.value === null ? undefined : data.summary.timeToHireDays.change} icon={Sparkles} />
-        <Kpi title="Vacantes abiertas" value={metric(data.summary.openPositions.openSeats)} detail={`${data.summary.openPositions.openRoles} vacantes publicadas activas`} icon={BriefcaseBusiness} />
+      <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <Kpi title="Pipeline" value={metric(data.summary.pipelineEntries.value)} detail={`${delta(data.summary.pipelineEntries.change)} vs previo`} change={data.summary.pipelineEntries.change} icon={Users} />
+        <Kpi title="Hires" value={metric(data.summary.hires.value)} detail={`${delta(data.summary.hires.change)} vs previo`} change={data.summary.hires.change} icon={Target} />
+        <Kpi title="Interviews" value={metric(data.summary.interviewsCompleted.value)} detail={`${delta(data.summary.interviewsCompleted.change)} vs previo`} change={data.summary.interviewsCompleted.change} icon={UserRoundSearch} />
+        <Kpi title="Offers" value={metric(data.summary.offersSent.value)} detail={`${delta(data.summary.offersSent.change)} vs previo`} change={data.summary.offersSent.change} icon={TrendingUp} />
+        <Kpi title="Time to hire" value={metric(data.summary.timeToHireDays.value, ' dias')} detail={data.summary.timeToHireDays.value === null ? 'Sin muestra' : `${delta(data.summary.timeToHireDays.change)} vs previo`} change={data.summary.timeToHireDays.value === null ? undefined : data.summary.timeToHireDays.change} icon={Sparkles} />
+        <Kpi title="Open seats" value={metric(data.summary.openPositions.openSeats)} detail={`${data.summary.openPositions.openRoles} roles activos`} icon={BriefcaseBusiness} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.28fr_0.92fr]">
-        <Panel title="Tendencia operativa del periodo" description="Ingresos al pipeline, entrevistas, ofertas y contrataciones efectivas segun el filtro activo.">
-          <div className="h-[340px]">
+      <div className="grid gap-5 xl:grid-cols-[1.28fr_0.92fr]">
+        <Panel title="Tendencia" description="Pipeline / entrevistas / offers / hires">
+          <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.charts.trend} margin={{ left: -18, right: 12, top: 8, bottom: 0 }}>
                 <defs>
@@ -275,9 +279,9 @@ export default function DashboardPage() {
           </div>
         </Panel>
 
-        <Panel title="Embudo actual del periodo" description={data.dataNotes.stageDefinition}>
-          <div className="space-y-4">
-            <div className="h-[250px]">
+        <Panel title="Embudo">
+          <div className="space-y-3">
+            <div className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.charts.funnel} layout="vertical" margin={{ left: 18, right: 12, top: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
@@ -291,28 +295,28 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <MiniStat label="Conversion" value={`${data.summary.conversionRate.value}%`} detail="Ingreso a hire dentro del periodo." />
-              <MiniStat label="Rechazo" value={`${data.summary.rejectionRate.value}%`} detail="Porcentaje de la cohorte descartada." />
+              <MiniStat label="Conversion" value={`${data.summary.conversionRate.value}%`} detail="Pipeline to hire" />
+              <MiniStat label="Rechazo" value={`${data.summary.rejectionRate.value}%`} detail="Cohorte descartada" />
             </div>
           </div>
         </Panel>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
-        <Panel title="Efectividad por fuente" description="No se estiman conversiones: se cruzan candidatos del periodo con contrataciones efectivas del mismo tramo.">
+      <div className="grid gap-5 xl:grid-cols-[1.02fr_0.98fr]">
+        <Panel title="Fuentes">
           <div className="space-y-3">
             {data.charts.sourcePerformance.length === 0 ? (
               <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-5 text-sm text-white/56">Sin fuentes registradas para el periodo filtrado.</div>
             ) : data.charts.sourcePerformance.map((source) => (
-              <div key={source.source} className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4">
+              <div key={source.source} className="rounded-[1.05rem] border border-white/8 bg-white/[0.03] p-3.5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm text-white">{SOURCE_LABELS[source.source] || source.source}</p>
-                    <p className="mt-1 text-[12px] text-white/48">{source.candidates} ingresos · {source.hires} hires</p>
+                    <p className="text-[13px] text-white">{SOURCE_LABELS[source.source] || source.source}</p>
+                    <p className="mt-1 text-[11px] text-white/48">{source.candidates} pipeline / {source.hires} hires</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-[family:var(--font-auth-display)] text-[1.8rem] leading-none tracking-[-0.03em] text-[#f2d48d]">{source.conversionRate}%</p>
-                    <p className="text-[11px] uppercase tracking-[0.24em] text-white/34">conversion</p>
+                    <p className="font-[family:var(--font-auth-display)] text-[1.45rem] leading-none tracking-[-0.03em] text-[#f2d48d]">{source.conversionRate}%</p>
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/34">conv</p>
                   </div>
                 </div>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/6"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7bb4ff,#f2d48d)]" style={{ width: `${Math.min(100, source.conversionRate)}%` }} /></div>
@@ -321,7 +325,7 @@ export default function DashboardPage() {
           </div>
         </Panel>
 
-        <Panel title="Desglose por capa operativa" description="Cambia la lectura entre reclutador, equipo y sucursal sin perder consistencia.">
+        <Panel title="Breakdown">
           <Tabs defaultValue="recruiters" className="gap-4">
             <TabsList className="h-10 rounded-[1rem] border border-white/10 bg-white/[0.04] p-1">
               <TabsTrigger value="recruiters" className="rounded-[0.85rem] data-[state=active]:bg-white/10">Reclutadores</TabsTrigger>
@@ -335,8 +339,8 @@ export default function DashboardPage() {
         </Panel>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.22fr_0.78fr]">
-        <Panel title="Vacantes con mayor movimiento" description="Relacion directa entre asientos abiertos, ingresos, entrevistas, ofertas y contrataciones.">
+      <div className="grid gap-5 xl:grid-cols-[1.22fr_0.78fr]">
+        <Panel title="Vacantes">
           <Table>
             <TableHeader><TableRow className="border-white/8 hover:bg-transparent"><TableHead className="text-white/56">Vacante</TableHead><TableHead className="text-white/56">Sucursal</TableHead><TableHead className="text-white/56">Asientos</TableHead><TableHead className="text-white/56">Ingresos</TableHead><TableHead className="text-white/56">Entrevistas</TableHead><TableHead className="text-white/56">Ofertas</TableHead><TableHead className="text-white/56">Hires</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -355,17 +359,17 @@ export default function DashboardPage() {
           </Table>
         </Panel>
 
-        <Panel title="Actividad reciente" description="Eventos reales del periodo filtrado dentro del alcance actual.">
+        <Panel title="Actividad">
           <div className="space-y-3">
             {data.recentActivity.length === 0 ? (
               <div className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4 text-sm text-white/56">No hubo actividad reciente dentro del filtro activo.</div>
             ) : data.recentActivity.map((activity) => (
-              <div key={activity.id} className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4">
+              <div key={activity.id} className="rounded-[1.05rem] border border-white/8 bg-white/[0.03] p-3.5">
                 <div className="flex items-start gap-3">
                   <div className="mt-1 rounded-full border border-white/10 bg-black/20 p-2"><Activity className="h-3.5 w-3.5 text-[#7bb4ff]" /></div>
                   <div className="min-w-0">
-                    <p className="text-sm leading-6 text-white">{activity.descripcion}</p>
-                    <p className="mt-1 text-[12px] text-white/42">{activity.usuario?.name || 'Sistema'} · {format(new Date(activity.createdAt), 'dd MMM yyyy HH:mm', { locale: es })}</p>
+                    <p className="text-[13px] leading-5 text-white">{activity.descripcion}</p>
+                    <p className="mt-1 text-[11px] text-white/42">{activity.usuario?.name || 'Sistema'} / {format(new Date(activity.createdAt), 'dd MMM yyyy HH:mm', { locale: es })}</p>
                   </div>
                 </div>
               </div>
@@ -394,7 +398,7 @@ function SelectField({
     <div className="space-y-2">
       <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">{label}</p>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-11 w-full rounded-[1rem] border-white/10 bg-white/[0.04] text-white"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-10 w-full rounded-[0.9rem] border-white/10 bg-white/[0.04] text-white"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{allLabel}</SelectItem>
           {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
@@ -406,10 +410,10 @@ function SelectField({
 
 function MiniStat({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-[1.2rem] border border-white/8 bg-black/20 p-4">
-      <p className="text-[11px] uppercase tracking-[0.26em] text-white/40">{label}</p>
-      <p className="mt-2 font-[family:var(--font-auth-display)] text-[2rem] leading-none tracking-[-0.04em] text-white">{value}</p>
-      <p className="mt-2 text-[12px] leading-5 text-white/56">{detail}</p>
+    <div className="rounded-[1rem] border border-white/8 bg-black/20 p-3.5">
+      <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">{label}</p>
+      <p className="mt-1.5 font-[family:var(--font-auth-display)] text-[1.55rem] leading-none tracking-[-0.04em] text-white">{value}</p>
+      <p className="mt-1.5 text-[11px] leading-5 text-white/52">{detail}</p>
     </div>
   )
 }
