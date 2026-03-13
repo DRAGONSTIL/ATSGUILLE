@@ -188,7 +188,7 @@ export const emailInvitacion = (
     empresaNombre: string
     rol: string
     enlace: string
-    codigoInvitacion: string
+    codigoInvitacion: string | null
     emailInvitado: string
   }
 ) => sendEmail({ to, template: 'invitacion', data })
