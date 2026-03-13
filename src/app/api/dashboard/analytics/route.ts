@@ -315,6 +315,7 @@ export async function GET(request: NextRequest) {
           id: true,
           nombre: true,
           apellido: true,
+          email: true,
           createdAt: true,
           estatus: true,
           fuente: true,
