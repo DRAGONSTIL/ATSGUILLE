@@ -354,6 +354,7 @@ export async function GET(request: NextRequest) {
           reclutadorId: true,
           equipoId: true,
           reclutador: { select: { id: true, name: true } },
+          equipo: { select: { id: true, nombre: true } },
           metricas: {
             where: {
               createdAt: {
@@ -859,6 +860,82 @@ export async function GET(request: NextRequest) {
     }
 
     const activePipeline = Array.from(activePipelineMap.values())
+    const shortlistedCandidates = currentCandidates.filter((candidate) => candidate.estatus !== 'REGISTRADO' && candidate.estatus !== 'RECHAZADO').length
+    const offersProvided = currentCandidates.filter((candidate) => Boolean(candidate.fechaOferta && inRange(candidate.fechaOferta, range))).length
+    const offersAccepted = currentCandidates.filter((candidate) => Boolean(candidate.fechaOferta && inRange(candidate.fechaOferta, range) && candidate.fechaContratacion)).length
+    const offerAcceptanceRatio = offersProvided > 0 ? Number(((offersAccepted / offersProvided) * 100).toFixed(1)) : null
+
+    const openPositionsByTeam = Array.from(vacancies.reduce<Map<string, { team: string; openPositions: number }>>((accumulator, vacancy) => {
+      const key = vacancy.equipo?.nombre || 'Sin equipo'
+      const current = accumulator.get(key) || { team: key, openPositions: 0 }
+      if (vacancy.estatus === 'PUBLICADA') {
+        current.openPositions += Math.max(0, vacancy.vacantes - vacancy.vacantesLlenas)
+      }
+      accumulator.set(key, current)
+      return accumulator
+    }, new Map()).values())
+      .sort((left, right) => right.openPositions - left.openPositions)
+      .filter((item) => item.openPositions > 0)
+      .slice(0, 6)
+
+    const applicationsBySource = applicationSources
+      .map((item) => ({
+        source: item.source,
+        applications: item.candidates,
+      }))
+      .sort((left, right) => right.applications - left.applications)
+      .slice(0, 5)
+
+    const compactFunnel = [
+      {
+        key: 'APPLICATION',
+        label: 'Application',
+        count: currentCandidates.length,
+      },
+      {
+        key: 'SCREENING',
+        label: 'Screening',
+        count: currentCandidates.filter((candidate) => {
+          const milestones = candidateMilestones.get(candidate.id)
+          return candidate.estatus !== 'REGISTRADO' || Boolean(milestones?.phoneDate || milestones?.anyInterviewDate)
+        }).length,
+      },
+      {
+        key: 'INTERVIEW',
+        label: 'Interview',
+        count: currentCandidates.filter((candidate) => {
+          const milestones = candidateMilestones.get(candidate.id)
+          return Boolean(milestones?.anyInterviewDate || candidate.estatus === 'ENTREVISTA' || candidate.fechaOferta || candidate.fechaContratacion)
+        }).length,
+      },
+      {
+        key: 'HIRED',
+        label: 'Hired',
+        count: currentHires.length,
+      },
+    ]
+
+    const applicationsByTeam = Array.from(currentCandidates.reduce<Map<string, { team: string; applications: number }>>((accumulator, candidate) => {
+      const key = candidate.equipo?.nombre || 'Sin equipo'
+      const current = accumulator.get(key) || { team: key, applications: 0 }
+      current.applications += 1
+      accumulator.set(key, current)
+      return accumulator
+    }, new Map()).values())
+      .sort((left, right) => right.applications - left.applications)
+      .slice(0, 6)
+
+    const applicationDetails = [...currentCandidates]
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+      .slice(0, 8)
+      .map((candidate) => ({
+        id: candidate.id,
+        name: `${candidate.nombre} ${candidate.apellido}`.trim(),
+        email: candidate.email,
+        jobTitle: candidate.vacante?.titulo || 'Sin vacante',
+        appliedDate: candidate.createdAt,
+        status: candidate.estatus,
+      }))
 
     return NextResponse.json({
       generatedAt: new Date().toISOString(),
@@ -960,6 +1037,22 @@ export async function GET(request: NextRequest) {
         activePipeline: {
           totalPending: activeCandidates.length,
           stages: activePipeline,
+        },
+        executiveSnapshot: {
+          totalApplicants: currentCandidates.length,
+          shortlistedCandidates,
+          hiredCandidates: currentHires.length,
+          rejectedCandidates: currentRejections.length,
+          timeToHireDays: avg(currentTimeToHire),
+          costToHire: avg(costPerHireSamples),
+          offerAcceptanceRatio,
+          offersAccepted,
+          offersProvided,
+          openPositionsByTeam,
+          applicationsBySource,
+          compactFunnel,
+          applicationsByTeam,
+          applicationDetails,
         },
       },
       tables: {

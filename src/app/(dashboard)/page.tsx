@@ -6,29 +6,21 @@ import { format, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
 import { Cormorant_Garamond } from 'next/font/google'
-import {
-  Cell,
-  Pie,
-  PieChart as RechartsPieChart,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-} from 'recharts'
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts'
 import { CalendarRange, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
 type DashboardResponse = {
   generatedAt: string
   range: {
     preset: 'day' | 'week' | 'month' | 'year' | 'custom'
-    from: string
-    to: string
     label: string
-    granularity: 'day' | 'week' | 'month'
   }
   filterOptions: {
     recruiters: Array<{ id: string; name: string }>
@@ -36,31 +28,28 @@ type DashboardResponse = {
     branches: Array<{ value: string; label: string }>
   }
   dashboard: {
-    topMetrics: {
-      hired: number
-      appsPerHire: number | null
-      daysToHire: number | null
-      costPerHire: number | null
-      openPositions: number
-      daysInMarket: number | null
-    }
-    recruitmentFunnel: Array<{ key: string; label: string; count: number; share: number }>
-    monthlyMetrics: Array<{ key: string; month: string; hires: number; daysToHire: number | null }>
-    pipelineEfficiency: {
-      totalDays: number | null
-      stages: Array<{ key: string; label: string; days: number }>
-    }
-    applicationSources: Array<{
-      source: string
-      candidates: number
-      hires: number
-      shareOfHires: number
-      conversionRate: number
-    }>
-    declineReasons: Array<{ reason: string; count: number; share: number }>
-    activePipeline: {
-      totalPending: number
-      stages: Array<{ key: string; label: string; count: number; color: string }>
+    executiveSnapshot: {
+      totalApplicants: number
+      shortlistedCandidates: number
+      hiredCandidates: number
+      rejectedCandidates: number
+      timeToHireDays: number | null
+      costToHire: number | null
+      offerAcceptanceRatio: number | null
+      offersAccepted: number
+      offersProvided: number
+      openPositionsByTeam: Array<{ team: string; openPositions: number }>
+      applicationsBySource: Array<{ source: string; applications: number }>
+      compactFunnel: Array<{ key: string; label: string; count: number }>
+      applicationsByTeam: Array<{ team: string; applications: number }>
+      applicationDetails: Array<{
+        id: string
+        name: string
+        email: string
+        jobTitle: string
+        appliedDate: string
+        status: string
+      }>
     }
   }
 }
@@ -83,39 +72,38 @@ const SOURCE_LABELS: Record<string, string> = {
   OTRO: 'Otra',
 }
 
-const PIE_COLORS = ['#1565c0', '#26a69a', '#7cb342', '#f4a300', '#ef5350']
+const STATUS_LABELS: Record<string, string> = {
+  REGISTRADO: 'Application',
+  EN_PROCESO: 'Screening',
+  ENTREVISTA: 'Interview',
+  CONTRATADO: 'Hired',
+  RECHAZADO: 'Rejected',
+}
 
-function metricValue(value: number | null, mode: 'integer' | 'decimal' | 'plain' = 'integer') {
+const DONUT_COLORS = ['#d9c089', '#76a7ff', '#4fd1c5', '#8ad05f', '#efb54a', '#ff7f6b']
+
+function metricValue(value: number | null, kind: 'int' | 'decimal' | 'currency' = 'int') {
   if (value === null) return '--'
-  if (mode === 'decimal') return value.toFixed(1)
-  if (mode === 'plain') return value.toLocaleString('es-MX')
+  if (kind === 'decimal') return value.toFixed(1)
+  if (kind === 'currency') return `$ ${Math.round(value).toLocaleString('es-MX')}`
   return Math.round(value).toLocaleString('es-MX')
 }
 
-function SectionCard({ title, children }: { title: string; children: ReactNode }) {
+function Panel({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <section className="relative rounded-[1.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.26)]">
-      <div className="pointer-events-none absolute left-5 top-0 -translate-y-1/2 rounded-md border border-white/10 bg-[#101521] px-3 py-1 text-[11px] text-white/68">
-        {title}
-      </div>
+    <section className={cn('relative overflow-hidden rounded-[1.15rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)]', className)}>
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+      <div className="mb-4 text-[12px] font-medium text-white/76">{title}</div>
       {children}
     </section>
   )
 }
 
-function TopMetric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="flex flex-col items-center gap-2 rounded-[1rem] border border-white/10 bg-white/[0.03] px-3 py-4 text-center">
-      <div
-        className={cn(
-          'flex h-12 min-w-[4.5rem] items-center justify-center px-3 text-[1.45rem] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
-          accent ? 'bg-[#1565c0]' : 'bg-[#3a3f49]'
-        )}
-        style={{ clipPath: 'polygon(0 0,100% 0,100% 78%,50% 100%,0 78%)' }}
-      >
-        {value}
-      </div>
-      <p className="text-[12px] text-white/72">{label}</p>
+    <article className="rounded-[1rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] px-3 py-3 text-center shadow-[0_16px_46px_rgba(0,0,0,0.18)]">
+      <p className="text-[11px] text-white/52">{label}</p>
+      <p className="mt-1 font-[family:var(--font-auth-display)] text-[1.8rem] leading-none tracking-[-0.04em] text-white">{value}</p>
     </article>
   )
 }
@@ -149,10 +137,11 @@ export default function DashboardPage() {
       return response.json()
     },
     placeholderData: (previous) => previous,
-    staleTime: 10_000,
-    refetchInterval: 30_000,
+    staleTime: 0,
+    refetchInterval: 10_000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   })
 
   if (isLoading && !data) {
@@ -160,37 +149,26 @@ export default function DashboardPage() {
   }
 
   if (isError || !data) {
-    return <div className="rounded-[1.4rem] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">No fue posible cargar el dashboard.</div>
+    return <div className="rounded-[1.3rem] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">No fue posible cargar el dashboard.</div>
   }
 
-  const top = data.dashboard.topMetrics
-  const monthlyHiresMax = Math.max(1, ...data.dashboard.monthlyMetrics.map((item) => item.hires))
-  const monthlyTimeMax = Math.max(1, ...data.dashboard.monthlyMetrics.map((item) => item.daysToHire || 0))
-  const funnelBase = Math.max(1, data.dashboard.recruitmentFunnel[0]?.count || 0)
-  const sourceConvMax = Math.max(1, ...data.dashboard.applicationSources.map((item) => item.conversionRate))
-  const declineMax = Math.max(1, ...data.dashboard.declineReasons.map((item) => item.count))
-  const recruiterLabel = recruiterId === 'all'
-    ? 'Todos los reclutadores'
-    : data.filterOptions.recruiters.find((item) => item.id === recruiterId)?.name || 'Reclutador'
-  const teamLabel = teamId === 'all'
-    ? 'Todos los equipos'
-    : data.filterOptions.teams.find((item) => item.id === teamId)?.name || 'Equipo'
-  const branchLabel = branch === 'all'
-    ? 'Todas las sucursales'
-    : data.filterOptions.branches.find((item) => item.value === branch)?.label || branch
+  const snapshot = data.dashboard.executiveSnapshot
+  const sourceMax = Math.max(1, ...snapshot.applicationsBySource.map((item) => item.applications))
+  const departmentMax = Math.max(1, ...snapshot.applicationsByTeam.map((item) => item.applications))
+  const funnelBase = Math.max(1, snapshot.compactFunnel[0]?.count || 1)
 
   return (
     <div className={cn('space-y-4', cormorant.variable)}>
-      <section className="rounded-[1.45rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(123,180,255,0.12),transparent_28%),linear-gradient(180deg,rgba(10,14,22,0.96),rgba(6,8,14,0.98))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.3)]">
+      <section className="rounded-[1.35rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(118,167,255,0.12),transparent_30%),radial-gradient(circle_at_0%_0%,rgba(217,192,137,0.12),transparent_25%),linear-gradient(180deg,rgba(8,12,20,0.98),rgba(7,10,16,0.98))] p-4 shadow-[0_32px_100px_rgba(0,0,0,0.28)]">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-2">
-            <h1 className="font-[family:var(--font-auth-display)] text-[clamp(1.9rem,2.8vw,2.9rem)] leading-none tracking-[-0.04em] text-white">
-              Recruitment Funnel and Application Source Dashboard
+            <h1 className="font-[family:var(--font-auth-display)] text-[clamp(1.9rem,2.8vw,2.8rem)] leading-none tracking-[-0.05em] text-white">
+              Executive Recruitment Dashboard
             </h1>
             <div className="flex flex-wrap gap-2">
               <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">{data.range.label}</Badge>
               <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">Sync {format(new Date(data.generatedAt), 'HH:mm:ss', { locale: es })}</Badge>
-              <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">Auto refresh 30s</Badge>
+              <Badge className="border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-medium text-white/68">Live refresh 10s</Badge>
             </div>
           </div>
 
@@ -231,201 +209,133 @@ export default function DashboardPage() {
                 </Popover>
               </div>
             </div>
-            <SelectField
-              label="Reclutador"
-              value={recruiterId}
-              onChange={setRecruiterId}
-              allLabel="Todos"
-              options={data.filterOptions.recruiters.map((option) => ({ value: option.id, label: option.name }))}
-            />
-            <SelectField
-              label="Equipo"
-              value={teamId}
-              onChange={setTeamId}
-              allLabel="Todos"
-              options={data.filterOptions.teams.map((option) => ({ value: option.id, label: option.name }))}
-            />
-            <SelectField
-              label="Sucursal"
-              value={branch}
-              onChange={setBranch}
-              allLabel="Todas"
-              options={data.filterOptions.branches}
-            />
+            <SelectField label="Reclutador" value={recruiterId} onChange={setRecruiterId} allLabel="Todos" options={data.filterOptions.recruiters.map((item) => ({ value: item.id, label: item.name }))} />
+            <SelectField label="Equipo" value={teamId} onChange={setTeamId} allLabel="Todos" options={data.filterOptions.teams.map((item) => ({ value: item.id, label: item.name }))} />
+            <SelectField label="Sucursal" value={branch} onChange={setBranch} allLabel="Todas" options={data.filterOptions.branches} />
           </div>
         </div>
       </section>
 
-      <section className="rounded-[1.45rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,16,25,0.98),rgba(8,10,16,0.98))] p-4 shadow-[0_30px_90px_rgba(0,0,0,0.34)]">
-        <div className="rounded-[0.9rem] border border-white/10 bg-white/[0.03] px-4 py-2 text-center text-[11px] text-white/64">
-          {data.range.label} / {recruiterLabel} / {teamLabel} / {branchLabel}
-          {isFetching ? <Loader2 className="ml-2 inline h-3.5 w-3.5 animate-spin text-[#f2d48d]" /> : null}
+      <section className="rounded-[1.35rem] border border-white/10 bg-[linear-gradient(180deg,rgba(13,18,28,0.98),rgba(9,12,18,0.98))] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.3)]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <MetricCard label="Total Applicants" value={metricValue(snapshot.totalApplicants)} />
+          <MetricCard label="Shortlisted Candidates" value={metricValue(snapshot.shortlistedCandidates)} />
+          <MetricCard label="Hired Candidates" value={metricValue(snapshot.hiredCandidates)} />
+          <MetricCard label="Rejected Candidates" value={metricValue(snapshot.rejectedCandidates)} />
+          <MetricCard label="Time to hire" value={`${metricValue(snapshot.timeToHireDays)} day(s)`} />
+          <MetricCard label="Cost to hire" value={metricValue(snapshot.costToHire, 'currency')} />
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <TopMetric label="Hired" value={metricValue(top.hired)} />
-          <TopMetric label="Apps Per Hire" value={metricValue(top.appsPerHire, 'decimal')} />
-          <TopMetric label="Days to Hire" value={metricValue(top.daysToHire, 'integer')} />
-          <TopMetric label="Cost Per Hire" value={metricValue(top.costPerHire, 'plain')} />
-          <TopMetric label="Open Positions" value={metricValue(top.openPositions)} accent />
-          <TopMetric label="Days in MKT" value={metricValue(top.daysInMarket, 'integer')} accent />
-        </div>
-
-        <div className="mt-5 grid gap-4 xl:grid-cols-3">
-          <SectionCard title="Recruitment Funnel">
-            <div className="space-y-3">
-              {data.dashboard.recruitmentFunnel.map((stage) => (
-                <div key={stage.key} className="grid grid-cols-[6.8rem_1fr_auto] items-center gap-3">
-                  <p className="text-[13px] text-white/74">{stage.label}</p>
-                  <div className="relative h-7 overflow-hidden rounded-sm bg-white/6">
-                    <div
-                      className="flex h-full items-center justify-end rounded-sm bg-[linear-gradient(90deg,#1565c0,#1e88e5)] pr-2 text-[11px] font-medium text-white"
-                      style={{ width: `${Math.max((stage.count / funnelBase) * 100, stage.count > 0 ? 12 : 0)}%` }}
-                    >
-                      {stage.share}%
-                    </div>
-                  </div>
-                  <p className="w-10 text-right text-[12px] text-white/62">{stage.count}</p>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Monthly Metrics (Past 12 Months)">
-            <div className="grid grid-cols-[4.3rem_1fr_1fr] gap-3 text-[11px] uppercase tracking-[0.16em] text-white/42">
-              <span>Month</span>
-              <span>Hired</span>
-              <span>Days to Hire</span>
-            </div>
-            <div className="mt-3 space-y-2.5">
-              {data.dashboard.monthlyMetrics.map((item) => (
-                <div key={item.key} className="grid grid-cols-[4.3rem_1fr_1fr] items-center gap-3">
-                  <span className="text-[12px] text-white/68">{item.month}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="h-5 flex-1 overflow-hidden rounded-sm bg-white/6">
-                      <div className="h-full bg-[#1565c0]" style={{ width: `${(item.hires / monthlyHiresMax) * 100}%` }} />
-                    </div>
-                    <span className="w-6 text-[12px] text-white/74">{item.hires}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-5 flex-1 overflow-hidden rounded-sm bg-white/6">
-                      <div className="h-full bg-[#26a69a]" style={{ width: `${((item.daysToHire || 0) / monthlyTimeMax) * 100}%` }} />
-                    </div>
-                    <span className="w-8 text-[12px] text-white/74">{item.daysToHire === null ? '--' : item.daysToHire}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Pipeline Efficiency of Hiring">
-            {data.dashboard.pipelineEfficiency.stages.length === 0 ? (
-              <div className="flex h-48 items-center justify-center text-sm text-white/46">Sin base suficiente para cycle time.</div>
+        <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr_1fr_0.85fr]">
+          <Panel title="Open position by department">
+            {snapshot.openPositionsByTeam.length === 0 ? (
+              <div className="flex h-[15rem] items-center justify-center text-sm text-white/46">Sin posiciones abiertas.</div>
             ) : (
-              <div className="grid gap-4 lg:grid-cols-[1fr_12rem]">
+              <div className="grid h-[15rem] grid-cols-[10rem_1fr] gap-3">
+                <div className="relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={snapshot.openPositionsByTeam} dataKey="openPositions" nameKey="team" innerRadius={34} outerRadius={70} paddingAngle={2}>
+                        {snapshot.openPositionsByTeam.map((item, index) => <Cell key={item.team} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />)}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ backgroundColor: '#0d121d', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', color: '#f8fafc' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
                 <div className="space-y-2 pt-2">
-                  {data.dashboard.pipelineEfficiency.stages.map((stage, index) => (
-                    <div key={stage.key} className="flex items-center gap-2 text-[13px] text-white/72">
-                      <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
-                      <span className="flex-1">{stage.label}</span>
-                      <span>{stage.days}d</span>
+                  {snapshot.openPositionsByTeam.map((item, index) => (
+                    <div key={item.team} className="flex items-center gap-2 text-[12px] text-white/72">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: DONUT_COLORS[index % DONUT_COLORS.length] }} />
+                      <span className="flex-1 truncate">{item.team}</span>
+                      <span>{item.openPositions}</span>
                     </div>
                   ))}
                 </div>
-                <div className="relative h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={data.dashboard.pipelineEfficiency.stages}
-                        dataKey="days"
-                        nameKey="label"
-                        innerRadius={42}
-                        outerRadius={68}
-                        paddingAngle={2}
-                      >
-                        {data.dashboard.pipelineEfficiency.stages.map((stage, index) => (
-                          <Cell key={stage.key} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip
-                        formatter={(value: number) => [`${value} dias`, '']}
-                        contentStyle={{ backgroundColor: '#0d121d', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', color: '#f8fafc' }}
-                      />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="font-[family:var(--font-auth-display)] text-[2.1rem] leading-none tracking-[-0.04em] text-white">{metricValue(data.dashboard.pipelineEfficiency.totalDays)}</span>
-                    <span className="mt-1 text-[11px] uppercase tracking-[0.2em] text-white/42">days</span>
-                  </div>
-                </div>
               </div>
             )}
-          </SectionCard>
+          </Panel>
+
+          <Panel title="Application Received By Source">
+            <div className="space-y-3 pt-1">
+              {snapshot.applicationsBySource.map((item) => (
+                <div key={item.source} className="grid grid-cols-[6.5rem_1fr_3rem] items-center gap-3">
+                  <span className="truncate text-[12px] text-white/72">{SOURCE_LABELS[item.source] || item.source}</span>
+                  <div className="h-5 overflow-hidden rounded-sm bg-white/6">
+                    <div className="flex h-full items-center justify-end bg-[linear-gradient(90deg,#4f85e6,#76a7ff)] pr-2 text-[11px] text-white" style={{ width: `${(item.applications / sourceMax) * 100}%` }}>
+                      {item.applications}
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-white/54">apps</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Recruitment Funnel">
+            <div className="flex h-[15rem] items-center justify-center">
+              <div className="w-full max-w-[16rem] space-y-1.5">
+                {snapshot.compactFunnel.map((item, index) => {
+                  const width = 100 - index * 18
+                  return (
+                    <div key={item.key} className="mx-auto flex h-12 items-center justify-between px-4 text-[12px] text-white" style={{ width: `${width}%`, background: `linear-gradient(90deg, ${DONUT_COLORS[index % DONUT_COLORS.length]}, ${DONUT_COLORS[(index + 1) % DONUT_COLORS.length]})`, clipPath: 'polygon(9% 0,91% 0,100% 100%,0 100%)' }}>
+                      <span>{item.label}</span>
+                      <span>{item.count}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title="Offer Acceptance Ratio">
+            <div className="flex h-[15rem] flex-col items-center justify-center text-center">
+              <p className="font-[family:var(--font-auth-display)] text-[2.4rem] leading-none tracking-[-0.05em] text-white">{snapshot.offerAcceptanceRatio === null ? '--' : `${snapshot.offerAcceptanceRatio}%`}</p>
+              <p className="mt-6 text-[13px] text-white/62">Offer Accepted</p>
+              <p className="text-[1.35rem] text-white">{snapshot.offersAccepted}</p>
+              <p className="mt-3 text-[13px] text-white/62">Offers Provided</p>
+              <p className="text-[1.35rem] text-white">{snapshot.offersProvided}</p>
+            </div>
+          </Panel>
         </div>
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-3">
-          <SectionCard title="Application Sources">
-            <div className="grid grid-cols-[1fr_3.5rem_4rem_4rem] gap-2 text-[11px] uppercase tracking-[0.16em] text-white/42">
-              <span>Source</span>
-              <span># Hired</span>
-              <span>% of Hired</span>
-              <span>Conv Rate</span>
-            </div>
-            <div className="mt-3 space-y-2.5">
-              {data.dashboard.applicationSources.length === 0 ? (
-                <div className="py-10 text-center text-sm text-white/46">Sin fuentes en el periodo.</div>
-              ) : data.dashboard.applicationSources.map((item) => (
-                <div key={item.source} className="grid grid-cols-[1fr_3.5rem_4rem_4rem] items-center gap-2">
-                  <span className="truncate text-[13px] text-white/76">{SOURCE_LABELS[item.source] || item.source}</span>
-                  <span className="text-[12px] text-white/72">{item.hires}</span>
-                  <span className="text-[12px] text-white/72">{item.shareOfHires}%</span>
-                  <div className="space-y-1">
-                    <span className="text-[12px] text-white/72">{item.conversionRate}%</span>
-                    <div className="h-2 overflow-hidden rounded-sm bg-white/6">
-                      <div className="h-full bg-[linear-gradient(90deg,#1565c0,#1e88e5)]" style={{ width: `${(item.conversionRate / sourceConvMax) * 100}%` }} />
-                    </div>
+        <div className="mt-4 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+          <Panel title="Application Received by Department">
+            <div className="flex h-[16rem] items-end gap-3 pt-3">
+              {snapshot.applicationsByTeam.map((item, index) => (
+                <div key={item.team} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+                  <div className="flex w-full items-start justify-center rounded-t-[0.7rem] bg-[linear-gradient(180deg,#8dc0ff,#4f85e6)] text-[12px] text-white shadow-[0_10px_32px_rgba(79,133,230,0.28)]" style={{ height: `${Math.max((item.applications / departmentMax) * 100, 14)}%` }}>
+                    <span className="pt-2">{item.applications}</span>
                   </div>
+                  <span className="w-full text-center text-[11px] leading-4 text-white/62">{item.team}</span>
                 </div>
               ))}
             </div>
-          </SectionCard>
+          </Panel>
 
-          <SectionCard title="Decline Reasons">
-            <div className="grid grid-cols-[1fr_3.5rem_4rem] gap-2 text-[11px] uppercase tracking-[0.16em] text-white/42">
-              <span>Reason</span>
-              <span># Apps</span>
-              <span>%</span>
-            </div>
-            <div className="mt-3 space-y-2.5">
-              {data.dashboard.declineReasons.length === 0 ? (
-                <div className="py-10 text-center text-sm text-white/46">Sin rechazos con motivo en el periodo.</div>
-              ) : data.dashboard.declineReasons.map((item) => (
-                <div key={item.reason} className="grid grid-cols-[1fr_3.5rem_4rem] items-center gap-2">
-                  <div className="space-y-1">
-                    <span className="block truncate text-[13px] text-white/76">{item.reason}</span>
-                    <div className="h-2 overflow-hidden rounded-sm bg-white/6">
-                      <div className="h-full bg-[#26a69a]" style={{ width: `${(item.count / declineMax) * 100}%` }} />
-                    </div>
-                  </div>
-                  <span className="text-[12px] text-white/72">{item.count}</span>
-                  <span className="text-[12px] text-white/72">{item.share}%</span>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard title={`Active Pipeline   ${data.dashboard.activePipeline.totalPending} Pending`}>
-            <div className="grid grid-cols-5 gap-1.5 pt-4">
-              {data.dashboard.activePipeline.stages.map((stage) => (
-                <div key={stage.key} className="overflow-hidden rounded-[0.8rem] border border-white/10 bg-white/[0.03]">
-                  <div className="flex h-16 items-center justify-center text-[2rem] font-[family:var(--font-auth-display)] text-white" style={{ backgroundColor: stage.color }}>
-                    {stage.count}
-                  </div>
-                  <div className="px-2 py-2 text-center text-[11px] leading-4 text-white/72">{stage.label}</div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
+          <Panel title="Application details">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-white/8 hover:bg-transparent">
+                  <TableHead className="text-white/56">Application Name</TableHead>
+                  <TableHead className="text-white/56">Email</TableHead>
+                  <TableHead className="text-white/56">Job Title</TableHead>
+                  <TableHead className="text-white/56">Job Applied Date</TableHead>
+                  <TableHead className="text-white/56">Current Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {snapshot.applicationDetails.map((item) => (
+                  <TableRow key={item.id} className="border-white/8 hover:bg-white/[0.03]">
+                    <TableCell className="text-white">{item.name}</TableCell>
+                    <TableCell className="text-white/68">{item.email}</TableCell>
+                    <TableCell className="text-white/68">{item.jobTitle}</TableCell>
+                    <TableCell className="text-white/68">{format(new Date(item.appliedDate), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                    <TableCell className="text-white/82">{STATUS_LABELS[item.status] || item.status}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Panel>
         </div>
       </section>
     </div>
