@@ -1,118 +1,123 @@
-// ATLAS GSE - API para Aceptar Invitación
-
+import { InvitationStatus, UserStatus } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { z } from 'zod'
+import { InviteActivationSchema } from '@/lib/validations'
+import { findInvitationByEmailAndCode, findInvitationByToken } from '@/lib/invitation-helpers'
+import { buildAbsoluteUrl, hashPassword, normalizeEmail, normalizeUsername, roleLabel, validatePasswordStrength } from '@/lib/auth-helpers'
+import { emailBienvenida } from '@/lib/email'
 
-const AcceptInviteSchema = z.object({
-  token: z.string().min(1, 'Token requerido'),
-  name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').optional(),
-})
-
-// POST - Aceptar invitación y crear usuario
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const data = AcceptInviteSchema.parse(body)
+    const payload = InviteActivationSchema.parse(await request.json())
 
-    // Buscar invitación
-    const invitacion = await db.invitacion.findUnique({
-      where: { token: data.token },
-      include: {
-        empresa: true,
-        equipo: true,
-      },
-    })
+    const invitation =
+      (payload.email && payload.code ? await findInvitationByEmailAndCode(payload.email, payload.code) : null) ||
+      (request.headers.get('x-invite-token') ? await findInvitationByToken(request.headers.get('x-invite-token')!) : null)
 
-    if (!invitacion) {
-      return NextResponse.json({ error: 'Invitación no encontrada' }, { status: 404 })
+    if (!invitation) {
+      return NextResponse.json({ error: 'No se encontró una invitación activa para este correo y código.' }, { status: 404 })
     }
 
-    if (invitacion.usada) {
-      return NextResponse.json({ error: 'Esta invitación ya fue utilizada' }, { status: 400 })
+    if (invitation.status !== InvitationStatus.PENDING) {
+      return NextResponse.json({ error: 'La invitación ya no está disponible para activación.' }, { status: 400 })
     }
 
-    if (invitacion.expiresAt < new Date()) {
-      return NextResponse.json({ error: 'Esta invitación ha expirado' }, { status: 400 })
+    const normalizedEmail = normalizeEmail(payload.email)
+    if (normalizedEmail !== invitation.email) {
+      return NextResponse.json({ error: 'El correo no coincide con una invitación activa.' }, { status: 400 })
     }
 
-    // Verificar que no existe usuario con ese email
+    if (!payload.password) {
+      return NextResponse.json({ error: 'Debes crear una contraseña segura para activar este acceso.' }, { status: 400 })
+    }
+
     const existingUser = await db.user.findUnique({
-      where: { email: invitacion.email },
+      where: { email: normalizedEmail },
+      select: { id: true, name: true },
     })
 
-    if (existingUser) {
-      return NextResponse.json({ error: 'Ya existe un usuario con este email' }, { status: 400 })
+    if (!payload.name?.trim() && !existingUser?.name) {
+      return NextResponse.json({ error: 'Debes registrar el nombre completo del acceso autorizado.' }, { status: 400 })
     }
 
-    // Crear usuario
-    const user = await db.user.create({
-      data: {
-        email: invitacion.email,
-        name: data.name,
-        rol: invitacion.rol,
-        empresaId: invitacion.empresaId,
-        equipoId: invitacion.equipoId,
+    const passwordError = validatePasswordStrength(payload.password)
+    if (passwordError) {
+      return NextResponse.json({ error: passwordError }, { status: 400 })
+    }
+
+    const normalizedUsername = payload.username ? normalizeUsername(payload.username) : null
+    if (normalizedUsername) {
+      const usernameOwner = await db.user.findUnique({ where: { username: normalizedUsername } })
+      if (usernameOwner && usernameOwner.email !== normalizedEmail) {
+        return NextResponse.json({ error: 'El usuario solicitado ya está asignado a otra cuenta.' }, { status: 400 })
+      }
+    }
+
+    const passwordHash = await hashPassword(payload.password)
+
+    const user = await db.user.upsert({
+      where: { email: normalizedEmail },
+      create: {
+        email: normalizedEmail,
+        username: normalizedUsername,
+        name: payload.name?.trim() || null,
+        passwordHash,
+        status: UserStatus.ACTIVE,
         activo: true,
+        rol: invitation.rol,
+        empresaId: invitation.empresaId,
+        equipoId: invitation.equipoId,
+        invitedById: invitation.invitadoPorId ?? null,
+      },
+      update: {
+        username: normalizedUsername ?? undefined,
+        name: payload.name?.trim() || undefined,
+        passwordHash,
+        status: UserStatus.ACTIVE,
+        activo: true,
+        rol: invitation.rol,
+        empresaId: invitation.empresaId,
+        equipoId: invitation.equipoId,
+        invitedById: invitation.invitadoPorId ?? undefined,
       },
     })
 
-    // Marcar invitación como usada
     await db.invitacion.update({
-      where: { id: invitacion.id },
+      where: { id: invitation.id },
       data: {
-        usada: true,
-        usadoEn: new Date(),
+        status: InvitationStatus.USED,
+        usedAt: new Date(),
       },
     })
 
-    // Crear actividad
     await db.actividad.create({
       data: {
         tipo: 'NOTA_AGREGADA',
-        descripcion: `Usuario ${user.name} aceptó invitación y se unió al equipo`,
+        descripcion: `Acceso activado para ${user.email}`,
         entidad: 'usuario',
         entidadId: user.id,
-        usuarioId: user.id,
+        usuarioId: invitation.invitadoPorId ?? user.id,
       },
     })
 
-    // Crear notificación para el administrador
-    if (invitacion.invitadoPorId) {
-      await db.notificacion.create({
-        data: {
-          usuarioId: invitacion.invitadoPorId,
-          titulo: 'Nuevo usuario unido',
-          mensaje: `${user.name} ha aceptado la invitación y se ha unido al equipo`,
-          tipo: 'success',
-          entidad: 'usuario',
-          entidadId: user.id,
-        },
-      })
-    }
+    await emailBienvenida(user.email, {
+      nombre: user.name || user.email,
+      empresaNombre: invitation.empresa?.nombre || 'ATLAS GSE',
+      rol: roleLabel(user.rol),
+      enlaceLogin: buildAbsoluteUrl('/login'),
+    })
 
     return NextResponse.json({
       success: true,
-      message: 'Cuenta creada exitosamente',
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        rol: user.rol,
+        username: user.username,
       },
     })
   } catch (error) {
-    console.error('Error aceptando invitación:', error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Datos inválidos', details: error.issues },
-        { status: 400 }
-      )
-    }
-    return NextResponse.json(
-      { error: 'Error al aceptar invitación', details: String(error) },
-      { status: 500 }
-    )
+    console.error('invite_accept_error', error)
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'No fue posible activar el acceso.' }, { status: 400 })
   }
 }

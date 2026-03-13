@@ -312,6 +312,7 @@ export const InvitacionCreateSchema = z.object({
   empresaId: z.string().optional(),
   equipoId: z.string().optional(),
   mensaje: z.string().optional(),
+  expiresInDays: z.coerce.number().int().min(1).max(30).default(7),
 })
 
 // ====================
@@ -360,12 +361,25 @@ export const MetricaConfigUpdateSchema = z.object({
 // ====================
 
 export const LoginSchema = z.object({
-  email: z.string().email('Email inválido'),
+  identifier: z.string().min(3, 'Ingresa tu correo o usuario corporativo'),
   password: z.string().min(1, 'La contraseña es requerida'),
 })
 
-export const DemoLoginSchema = z.object({
-  rol: RolSchema,
+export const InviteActivationSchema = z.object({
+  email: z.string().email('Email inválido'),
+  code: z.string().min(6, 'Código inválido'),
+  name: z.string().min(2, 'Ingresa tu nombre completo').optional(),
+  username: z.string().min(3, 'El usuario debe tener al menos 3 caracteres').max(32).optional(),
+  password: z.string().min(10, 'La contraseña debe tener al menos 10 caracteres').optional(),
+})
+
+export const PasswordResetRequestSchema = z.object({
+  email: z.string().email('Email inválido'),
+})
+
+export const PasswordResetSchema = z.object({
+  token: z.string().min(1, 'Token requerido'),
+  password: z.string().min(10, 'La contraseña debe tener al menos 10 caracteres'),
 })
 
 // ====================
@@ -451,7 +465,9 @@ export type MetaUpdate = z.infer<typeof MetaUpdateSchema>
 export type MetricaConfigCreate = z.infer<typeof MetricaConfigCreateSchema>
 export type MetricaConfigUpdate = z.infer<typeof MetricaConfigUpdateSchema>
 export type LoginInput = z.infer<typeof LoginSchema>
-export type DemoLoginInput = z.infer<typeof DemoLoginSchema>
+export type InviteActivationInput = z.infer<typeof InviteActivationSchema>
+export type PasswordResetRequestInput = z.infer<typeof PasswordResetRequestSchema>
+export type PasswordResetInput = z.infer<typeof PasswordResetSchema>
 export type SyncInput = z.infer<typeof SyncSchema>
 export type EmailSendInput = z.infer<typeof EmailSendSchema>
 export type CandidatoFilter = z.infer<typeof CandidatoFilterSchema>

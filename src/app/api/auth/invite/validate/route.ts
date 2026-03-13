@@ -1,55 +1,54 @@
-// ATLAS GSE - API para Validar Invitación
-
+import { InvitationStatus } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { findInvitationByEmailAndCode, findInvitationByToken } from '@/lib/invitation-helpers'
 
-// GET - Validar token de invitación
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token')
+    const email = searchParams.get('email')
+    const code = searchParams.get('code')
 
-    if (!token) {
-      return NextResponse.json({ error: 'Token requerido' }, { status: 400 })
+    const invitation =
+      token?.trim()
+        ? await findInvitationByToken(token.trim())
+        : email?.trim() && code?.trim()
+          ? await findInvitationByEmailAndCode(email, code)
+          : null
+
+    if (!invitation) {
+      return NextResponse.json({ valid: false, error: 'No se encontró una invitación activa para este acceso.' }, { status: 404 })
     }
 
-    const invitacion = await db.invitacion.findUnique({
-      where: { token },
-      include: {
-        empresa: { select: { id: true, nombre: true } },
-        equipo: { select: { id: true, nombre: true } },
-        invitadoPor: { select: { id: true, name: true } },
-      },
-    })
-
-    if (!invitacion) {
-      return NextResponse.json({ error: 'Invitación no encontrada', valid: false }, { status: 404 })
+    if (invitation.status === InvitationStatus.REVOKED) {
+      return NextResponse.json({ valid: false, error: 'Esta invitación fue revocada por la administración.' }, { status: 400 })
     }
 
-    if (invitacion.usada) {
-      return NextResponse.json({ error: 'Esta invitación ya fue utilizada', valid: false }, { status: 400 })
+    if (invitation.status === InvitationStatus.USED) {
+      return NextResponse.json({ valid: false, error: 'Esta invitación ya fue utilizada.' }, { status: 400 })
     }
 
-    if (invitacion.expiresAt < new Date()) {
-      return NextResponse.json({ error: 'Esta invitación ha expirado', valid: false }, { status: 400 })
+    if (invitation.status === InvitationStatus.EXPIRED) {
+      return NextResponse.json({ valid: false, error: 'Este acceso ha expirado. Solicita una nueva invitación.' }, { status: 400 })
     }
 
     return NextResponse.json({
       valid: true,
-      invitacion: {
-        email: invitacion.email,
-        rol: invitacion.rol,
-        empresa: invitacion.empresa,
-        equipo: invitacion.equipo,
-        invitadoPor: invitacion.invitadoPor,
-        expiresAt: invitacion.expiresAt,
+      invitation: {
+        id: invitation.id,
+        token: invitation.token,
+        email: invitation.email,
+        code: invitation.code,
+        rol: invitation.rol,
+        empresa: invitation.empresa,
+        equipo: invitation.equipo,
+        invitadoPor: invitation.invitadoPor,
+        expiresAt: invitation.expiresAt,
+        status: invitation.status,
       },
     })
   } catch (error) {
-    console.error('Error validando invitación:', error)
-    return NextResponse.json(
-      { error: 'Error al validar invitación', details: String(error) },
-      { status: 500 }
-    )
+    console.error('invite_validate_error', error)
+    return NextResponse.json({ valid: false, error: 'No fue posible validar la invitación.' }, { status: 500 })
   }
 }

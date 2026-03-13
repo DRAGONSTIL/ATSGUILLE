@@ -63,19 +63,8 @@ import {
   ExternalLink,
   RefreshCw,
   Info,
-  Key,
+  Send,
 } from 'lucide-react'
-
-interface DemoKeyItem {
-  id: string
-  key: string
-  email: string
-  nombre?: string | null
-  empresa?: string | null
-  rolSolicitado: string
-  estatus: 'PENDIENTE' | 'APROBADA' | 'USADA' | 'RECHAZADA' | 'EXPIRADA'
-  expiresAt: string
-}
 
 // Types
 interface Empresa {
@@ -120,8 +109,10 @@ interface Invitacion {
   email: string
   rol: string
   token: string
+  code: string
   expiresAt: string
-  usada: boolean
+  status: 'PENDING' | 'USED' | 'EXPIRED' | 'REVOKED'
+  usedAt?: string | null
   empresa?: { id: string; nombre: string } | null
   equipo?: { id: string; nombre: string } | null
 }
@@ -139,7 +130,6 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [invitaciones, setInvitaciones] = useState<Invitacion[]>([])
   const [loading, setLoading] = useState(false)
-  const [demoKeys, setDemoKeys] = useState<DemoKeyItem[]>([])
   const [showDemoKeyDialog, setShowDemoKeyDialog] = useState(false)
   const [demoKeyForm, setDemoKeyForm] = useState({
     email: '',
@@ -188,6 +178,7 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
     rol: 'RECLUTADOR',
     equipoId: '',
     mensaje: '',
+    expiresInDays: 7,
   })
 
   const [editUserForm, setEditUserForm] = useState({
@@ -205,12 +196,11 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [empRes, eqRes, usrRes, invRes, keysRes] = await Promise.all([
+      const [empRes, eqRes, usrRes, invRes] = await Promise.all([
         fetch('/api/empresas'),
         fetch('/api/equipos'),
         fetch('/api/usuarios'),
         fetch('/api/auth/invite'),
-        fetch('/api/demo/keys'),
       ])
 
       if (empRes.ok) {
@@ -228,10 +218,6 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
       if (invRes.ok) {
         const data = await invRes.json()
         setInvitaciones(data.invitaciones || [])
-      }
-      if (keysRes.ok) {
-        const data = await keysRes.json()
-        setDemoKeys(data.keys || [])
       }
     } catch (error) {
       console.error('Error loading admin data:', error)
@@ -327,9 +313,11 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
         empresaId?: string
         equipoId?: string
         mensaje?: string
+        expiresInDays: number
       } = {
         email: invitarForm.email,
         rol: invitarForm.rol,
+        expiresInDays: invitarForm.expiresInDays,
       }
 
       if (userRole === 'GERENTE' && empresaId) {
@@ -372,7 +360,7 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
           title: 'Invitación enviada',
           message: `Se envió invitación a ${invitarForm.email}`,
         })
-        setInvitarForm({ email: '', rol: 'RECLUTADOR', equipoId: '', mensaje: '' })
+        setInvitarForm({ email: '', rol: 'RECLUTADOR', equipoId: '', mensaje: '', expiresInDays: 7 })
         loadData()
       } else {
         addNotification({ type: 'error', title: data.error || 'Error al enviar invitación', message: data.details })
@@ -392,6 +380,28 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
       }
     } catch (error) {
       addNotification({ type: 'error', title: 'Error al cancelar invitación' })
+    }
+  }
+
+  const handleResendInvitation = async (id: string) => {
+    try {
+      const res = await fetch('/api/auth/invite', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'resend' }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        addNotification({ type: 'error', title: data.error || 'Error al reenviar invitación' })
+        return
+      }
+
+      addNotification({ type: 'success', title: 'Invitación reenviada' })
+      loadData()
+    } catch (error) {
+      addNotification({ type: 'error', title: 'Error al reenviar invitación' })
     }
   }
 
@@ -524,50 +534,14 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
       </div>
 
       <Tabs defaultValue="equipos">
-        <TabsList className={`grid w-full ${userRole === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'}`}>
+        <TabsList className={`grid w-full ${userRole === 'ADMIN' ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <TabsTrigger value="equipos">Equipos</TabsTrigger>
           <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
           <TabsTrigger value="invitaciones">Invitaciones</TabsTrigger>
-          <TabsTrigger value="demokeys" className="gap-1"><Key className="h-4 w-4" />Demo Keys</TabsTrigger>
           {userRole === 'ADMIN' && (
             <TabsTrigger value="empresas">Empresas</TabsTrigger>
           )}
         </TabsList>
-
-        <TabsContent value="demokeys" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => setShowDemoKeyDialog(true)}>Nueva Key</Button>
-          </div>
-          <div className="rounded-md border overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="text-left p-2">Key</th><th className="text-left p-2">Email</th><th className="text-left p-2">Nombre</th><th className="text-left p-2">Empresa</th><th className="text-left p-2">Rol</th><th className="text-left p-2">Estatus</th><th className="text-left p-2">Expira</th><th className="text-left p-2">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {demoKeys.map((key) => (
-                  <tr key={key.id} className="border-t">
-                    <td className="p-2 font-mono text-xs">{key.key}</td>
-                    <td className="p-2">{key.email}</td>
-                    <td className="p-2">{key.nombre || '-'}</td>
-                    <td className="p-2">{key.empresa || '-'}</td>
-                    <td className="p-2">{key.rolSolicitado}</td>
-                    <td className="p-2">
-                      <Badge className={key.estatus === 'PENDIENTE' ? 'bg-amber-500/20 text-amber-600' : key.estatus === 'APROBADA' ? 'bg-green-500/20 text-green-600' : key.estatus === 'USADA' ? 'bg-blue-500/20 text-blue-600' : key.estatus === 'RECHAZADA' ? 'bg-red-500/20 text-red-600' : 'bg-slate-500/20 text-slate-600'}>{key.estatus}</Badge>
-                    </td>
-                    <td className="p-2">{new Date(key.expiresAt).toLocaleDateString()}</td>
-                    <td className="p-2 flex gap-2">
-                      <Button size="sm" variant="outline" onClick={async () => { await fetch('/api/demo/keys', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: key.id, estatus: 'APROBADA' }) }); loadData() }}>Aprobar</Button>
-                      <Button size="sm" variant="outline" onClick={async () => { await fetch('/api/demo/keys', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: key.id, estatus: 'RECHAZADA' }) }); loadData() }}>Rechazar</Button>
-                      <Button size="sm" variant="destructive" onClick={async () => { await fetch(`/api/demo/keys?id=${key.id}`, { method: 'DELETE' }); loadData() }}>Eliminar</Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </TabsContent>
 
         {/* Equipos */}
         <TabsContent value="equipos" className="space-y-4">
@@ -786,8 +760,8 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
                   invitaciones.map((inv) => (
                     <div key={inv.id} className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${inv.usada ? 'bg-green-500/20' : 'bg-amber-500/20'}`}>
-                          {inv.usada ? (
+                        <div className={`p-2 rounded-lg ${inv.status === 'USED' ? 'bg-green-500/20' : 'bg-amber-500/20'}`}>
+                          {inv.status === 'USED' ? (
                             <CheckCircle className="h-5 w-5 text-green-500" />
                           ) : (
                             <Mail className="h-5 w-5 text-amber-500" />
@@ -799,13 +773,16 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
                             Rol: {inv.rol}
                             {inv.equipo && ` • Equipo: ${inv.equipo.nombre}`}
                           </p>
+                          <p className="text-xs text-muted-foreground">
+                            Código: <span className="font-mono">{inv.code}</span> • Expira {new Date(inv.expiresAt).toLocaleDateString()}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={inv.usada ? 'default' : 'secondary'}>
-                          {inv.usada ? 'Aceptada' : 'Pendiente'}
+                        <Badge variant={inv.status === 'USED' ? 'default' : 'secondary'}>
+                          {inv.status === 'USED' ? 'Usada' : inv.status === 'EXPIRED' ? 'Expirada' : inv.status === 'REVOKED' ? 'Revocada' : 'Pendiente'}
                         </Badge>
-                        {!inv.usada && (
+                        {inv.status === 'PENDING' && (
                           <>
                             <Button
                               variant="ghost"
@@ -814,6 +791,14 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
                               title="Copiar link de invitación"
                             >
                               <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleResendInvitation(inv.id)}
+                              title="Reenviar invitación"
+                            >
+                              <Send className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -1212,13 +1197,23 @@ export function AdminPanel({ userRole, empresaId, onRefresh, addNotification }: 
                   placeholder="Hola, te invito a unirte a nuestro equipo..."
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Vigencia (días)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={invitarForm.expiresInDays}
+                  onChange={(e) => setInvitarForm({ ...invitarForm, expiresInDays: Number(e.target.value) || 7 })}
+                />
+              </div>
               
               <div className="p-3 rounded-lg bg-muted/50">
                 <div className="flex items-start gap-2">
                   <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div className="text-xs text-muted-foreground">
-                    <strong>Nota:</strong> En modo desarrollo los emails se registran en la consola del servidor. 
-                    El link de invitación se mostrará después de crear la invitación.
+                    <strong>Nota:</strong> En desarrollo, el correo de invitación se registra en la consola del servidor.
+                    El acceso es invite-only y no existen registros libres ni modo demo.
                   </div>
                 </div>
               </div>

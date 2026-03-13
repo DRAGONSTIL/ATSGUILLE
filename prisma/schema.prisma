@@ -20,6 +20,19 @@ enum Rol {
   RECLUTADOR
 }
 
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+enum InvitationStatus {
+  PENDING
+  USED
+  EXPIRED
+  REVOKED
+}
+
 enum EstatusCandidato {
   REGISTRADO
   EN_PROCESO
@@ -104,16 +117,6 @@ enum TipoActividad {
   SINCRONIZACION
 }
 
-enum EstatusDemoKey {
-  PENDIENTE
-  APROBADA
-  RECHAZADA
-  USADA
-  EXPIRADA
-}
-
-
-
 enum IntakeSubmissionStatus {
   RECEIVED
   PROCESSED
@@ -166,38 +169,47 @@ model VerificationToken {
 // ====================
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  imagen        String?
-  telefono      String?
-  puesto        String?
-  rol           Rol       @default(RECLUTADOR)
-  empresaId     String?
-  equipoId      String?
-  activo        Boolean   @default(true)
-  ultimoAcceso  DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String        @id @default(cuid())
+  email          String        @unique
+  username       String?       @unique
+  name           String?
+  imagen         String?
+  telefono       String?
+  puesto         String?
+  passwordHash   String?
+  googleId       String?       @unique
+  status         UserStatus    @default(ACTIVE)
+  rol            Rol           @default(RECLUTADOR)
+  empresaId      String?
+  equipoId       String?
+  activo         Boolean       @default(true)
+  ultimoAcceso   DateTime?
+  invitedById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  empresa       Empresa?   @relation(fields: [empresaId], references: [id])
-  equipo        Equipo?    @relation(fields: [equipoId], references: [id])
-  accounts      Account[]
-  sessions      Session[]
-  candidatos    Candidato[]
-  vacantes      Vacante[]
-  invitaciones  Invitacion[]
-  metas         Meta[]
-  actividades   Actividad[]
+  empresa        Empresa?      @relation(fields: [empresaId], references: [id])
+  equipo         Equipo?       @relation(fields: [equipoId], references: [id])
+  invitedBy      User?         @relation("UserInvitations", fields: [invitedById], references: [id])
+  invitedUsers   User[]        @relation("UserInvitations")
+  accounts       Account[]
+  sessions       Session[]
+  passwordResets PasswordReset[]
+  candidatos     Candidato[]
+  vacantes       Vacante[]
+  invitaciones   Invitacion[]
+  metas          Meta[]
+  actividades    Actividad[]
   notificaciones Notificacion[]
-  notas         Nota[]
-  tareasAsignadas Tarea[]  @relation("TareaAsignado")
-  tareasCreadas    Tarea[]  @relation("TareaCreador")
+  notas          Nota[]
+  tareasAsignadas Tarea[]      @relation("TareaAsignado")
+  tareasCreadas   Tarea[]      @relation("TareaCreador")
 
   @@index([email])
   @@index([empresaId])
   @@index([equipoId])
   @@index([rol])
+  @@index([status])
 }
 
 model Empresa {
@@ -425,27 +437,48 @@ model IntakeNonce {
 }
 
 model Invitacion {
-  id            String    @id @default(cuid())
+  id            String            @id @default(cuid())
   email         String
-  rol           Rol       @default(RECLUTADOR)
+  rol           Rol               @default(RECLUTADOR)
   empresaId     String?
   equipoId      String?
-  token         String    @unique
-  mensaje       String?   // Mensaje personalizado
+  token         String            @unique
+  code          String            @unique
+  mensaje       String?           // Mensaje personalizado
   expiresAt     DateTime
-  usada         Boolean   @default(false)
-  usadoEn       DateTime?
-  createdAt     DateTime  @default(now())
+  usedAt        DateTime?
+  revokedAt     DateTime?
+  status        InvitationStatus  @default(PENDING)
+  sentAt        DateTime          @default(now())
+  lastSentAt    DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
-  empresa       Empresa?  @relation(fields: [empresaId], references: [id])
-  equipo        Equipo?   @relation(fields: [equipoId], references: [id])
-  invitadoPor   User?     @relation(fields: [invitadoPorId], references: [id])
+  empresa       Empresa?          @relation(fields: [empresaId], references: [id])
+  equipo        Equipo?           @relation(fields: [equipoId], references: [id])
+  invitadoPor   User?             @relation(fields: [invitadoPorId], references: [id])
   invitadoPorId String?
 
   @@index([token])
+  @@index([code])
   @@index([email])
   @@index([expiresAt])
-  @@index([usada])
+  @@index([status])
+  @@index([email, status])
+}
+
+model PasswordReset {
+  id         String    @id @default(cuid())
+  userId     String
+  token      String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([token, expiresAt])
 }
 
 model SyncLog {
@@ -833,30 +866,6 @@ model ScorecardRespuesta {
 // ====================
 // DEMO KEY SYSTEM
 // ====================
-
-model DemoKey {
-  id              String          @id @default(cuid())
-  key             String          @unique
-  email           String          // Email del solicitante
-  nombre          String?         // Nombre del solicitante
-  empresa         String?         // Empresa del solicitante
-  telefono        String?         // Teléfono de contacto
-  mensaje         String?         // Mensaje adicional de la solicitud
-  estatus         EstatusDemoKey  @default(APROBADA)
-  rolSolicitado   Rol             @default(RECLUTADOR)
-  usadoPor        String?         // ID del usuario que usó la key
-  usadoEn         DateTime?
-  expiresAt       DateTime        // Fecha de expiración de la key
-  aprobadoPorId   String?         // ID del admin que aprobó
-  aprobadoEn      DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-
-  @@index([key])
-  @@index([email])
-  @@index([estatus])
-  @@index([expiresAt])
-}
 
 model AuditLog {
   id          String   @id @default(cuid())

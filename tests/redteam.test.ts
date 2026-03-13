@@ -25,9 +25,10 @@ test('rate limiter identifier contains tenant correlation', () => {
   assert.equal(identifier, 'user:actor-1:tenant:tenant-1')
 })
 
-test('demo mode provider hard guard is present in auth module', () => {
+test('auth module no longer exposes demo providers', () => {
   const auth = readFileSync('src/lib/auth.ts', 'utf8')
-  assert.match(auth, /process\.env\.NODE_ENV !== 'production'/)
+  assert.equal(auth.includes('demo-'), false)
+  assert.equal(auth.includes('DEMO_MODE'), false)
 })
 
 test('security scan protected routes avoid direct db import', () => {

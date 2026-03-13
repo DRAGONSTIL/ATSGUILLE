@@ -1,288 +1,200 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
-import { useRouter } from 'next/navigation'
+import type { FormEvent } from 'react'
+import { use, useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { useRouter } from 'next/navigation'
+import { AlertCircle, CheckCircle2, Loader2, Shield, Sparkles } from 'lucide-react'
+import { AtlasAuthShell } from '@/components/auth/atlas-auth-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Building2,
-  Mail,
-  User,
-  Lock,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-} from 'lucide-react'
 
-interface InviteData {
+type InviteData = {
+  token: string
   email: string
+  code: string
   rol: string
   empresa?: { nombre: string }
   equipo?: { nombre: string }
-  invitadoPor?: { name: string }
   expiresAt: string
+}
+
+function GoogleMark() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.77-.07-1.52-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09A6.97 6.97 0 0 1 5.49 12c0-.73.13-1.43.35-2.09V7.07H2.18A10.97 10.97 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l4.66-2.84z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" />
+    </svg>
+  )
 }
 
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
   const router = useRouter()
-
-  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState<'loading' | 'google' | 'activate' | null>('loading')
   const [inviteData, setInviteData] = useState<InviteData | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [accepting, setAccepting] = useState(false)
-  const [name, setName] = useState('')
-  const [password, setPassword] = useState('')
-  const [accepted, setAccepted] = useState(false)
+  const [alert, setAlert] = useState<{ type: 'error' | 'success'; message: string } | null>(null)
+  const [form, setForm] = useState({ name: '', username: '', password: '' })
 
-  // Validar invitación
   useEffect(() => {
-    const validateInvite = async () => {
+    const validate = async () => {
       try {
-        const res = await fetch(`/api/auth/invite/validate?token=${token}`)
+        const response = await fetch(`/api/auth/invite/validate?token=${encodeURIComponent(token)}`)
+        const data = await response.json()
 
-        if (!res.ok) {
-          const data = await res.json()
-          setError(data.error || 'Invitación inválida')
+        if (!response.ok || !data.valid) {
+          setAlert({ type: 'error', message: data.error || 'No fue posible validar esta invitación.' })
+          setBusy(null)
           return
         }
 
-        const data = await res.json()
-        setInviteData(data.invitacion)
-      } catch (err) {
-        setError('Error al validar la invitación')
+        setInviteData(data.invitation)
+      } catch {
+        setAlert({ type: 'error', message: 'No fue posible validar esta invitación.' })
       } finally {
-        setLoading(false)
+        setBusy(null)
       }
     }
 
-    validateInvite()
+    validate()
   }, [token])
 
-  // Aceptar invitación
-  const handleAccept = async () => {
-    if (!name.trim()) {
-      setError('Por favor ingresa tu nombre completo')
-      return
-    }
+  async function handleGoogleActivation() {
+    setBusy('google')
+    await signIn('google', { callbackUrl: '/' })
+  }
 
-    setAccepting(true)
-    setError(null)
+  async function handlePasswordActivation(event: FormEvent) {
+    event.preventDefault()
+    setBusy('activate')
+    setAlert(null)
 
     try {
-      const res = await fetch('/api/auth/invite/accept', {
+      const response = await fetch('/api/auth/invite/accept', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-invite-token': token,
+        },
         body: JSON.stringify({
-          token,
-          name: name.trim(),
-          password: password || undefined,
+          email: inviteData?.email,
+          code: inviteData?.code,
+          name: form.name,
+          username: form.username || undefined,
+          password: form.password,
         }),
       })
+      const data = await response.json()
 
-      if (!res.ok) {
-        const data = await res.json()
-        setError(data.error || 'Error al aceptar la invitación')
+      if (!response.ok) {
+        setAlert({ type: 'error', message: data.error || 'No fue posible activar el acceso.' })
+        setBusy(null)
         return
       }
 
-      setAccepted(true)
-
-      // Redirigir al login después de 2 segundos
+      setAlert({ type: 'success', message: 'Acceso activado. Serás redirigido a la plataforma.' })
       setTimeout(() => {
-        router.push('/')
-      }, 2000)
-    } catch (err) {
-      setError('Error al procesar la solicitud')
-    } finally {
-      setAccepting(false)
+        router.push('/login')
+      }, 1200)
+    } catch {
+      setAlert({ type: 'error', message: 'No fue posible activar el acceso.' })
+      setBusy(null)
     }
   }
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-        <Card className="w-full max-w-md border-0 shadow-2xl">
-          <CardContent className="flex flex-col items-center py-12">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Validando invitación...</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Error state
-  if (error && !inviteData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-        <Card className="w-full max-w-md border-0 shadow-2xl">
-          <CardContent className="flex flex-col items-center py-12">
-            <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center mb-4">
-              <XCircle className="h-8 w-8 text-destructive" />
-            </div>
-            <h2 className="text-xl font-bold mb-2">Invitación Inválida</h2>
-            <p className="text-muted-foreground text-center mb-4">{error}</p>
-            <Button onClick={() => router.push('/')}>
-              Ir al Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Accepted state
-  if (accepted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-        <Card className="w-full max-w-md border-0 shadow-2xl">
-          <CardContent className="flex flex-col items-center py-12">
-            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
-              <CheckCircle className="h-8 w-8 text-green-500" />
-            </div>
-            <h2 className="text-xl font-bold mb-2">¡Bienvenido a ATLAS GSE!</h2>
-            <p className="text-muted-foreground text-center">
-              Tu cuenta ha sido creada exitosamente. Serás redirigido al login...
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Form state
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-      <Card className="w-full max-w-md border-0 shadow-2xl">
-        <CardHeader className="text-center pb-2">
-          <div className="relative mx-auto mb-6">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary via-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-primary/30">
-              <Building2 className="h-10 w-10 text-white" />
-            </div>
-          </div>
-          <CardTitle className="text-2xl font-bold">¡Has sido invitado!</CardTitle>
-          <CardDescription>
-            {inviteData?.invitadoPor?.name || 'Un administrador'} te ha invitado a unirte a ATLAS GSE
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {/* Info de la invitación */}
-          <div className="space-y-3 p-4 rounded-lg bg-muted/50">
-            <div className="flex items-center gap-3">
-              <Mail className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Email</p>
-                <p className="font-medium">{inviteData?.email}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Rol</p>
-                <p className="font-medium capitalize">{inviteData?.rol?.toLowerCase()}</p>
-              </div>
-            </div>
-            {inviteData?.empresa && (
-              <div className="flex items-center gap-3">
-                <Building2 className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Empresa</p>
-                  <p className="font-medium">{inviteData.empresa.nombre}</p>
-                </div>
-              </div>
-            )}
-            {inviteData?.equipo && (
-              <div className="flex items-center gap-3">
-                <User className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Equipo</p>
-                  <p className="font-medium">{inviteData.equipo.nombre}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-              <AlertCircle className="h-4 w-4" />
-              {error}
-            </div>
-          )}
-
-          {/* Formulario */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre completo *</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="name"
-                  placeholder="Tu nombre completo"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña (opcional)</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Crea una contraseña"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Si no estableces una contraseña, podrás iniciar sesión con Google
-              </p>
-            </div>
-          </div>
-
-          <Button
-            className="w-full h-12"
-            onClick={handleAccept}
-            disabled={accepting || !name.trim()}
+    <AtlasAuthShell
+      eyebrow="Authorized enterprise invitation"
+      title="Activa tu acceso corporativo."
+      description="Esta invitación habilita una identidad exclusiva dentro del entorno ATLAS GSE. Valida el correo autorizado y elige tu método de activación."
+      panelTitle={busy === 'loading' ? 'Validando invitación' : 'Invitación corporativa'}
+      panelDescription="El acceso inicial puede vincularse con Google o activarse mediante credenciales seguras. Después del primer acceso, el código no volverá a solicitarse."
+    >
+      <div className="space-y-5">
+        {alert && (
+          <div
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              alert.type === 'error' ? 'border-red-400/20 bg-red-500/10 text-red-100' : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
+            }`}
           >
-            {accepting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Procesando...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Aceptar Invitación
-              </>
-            )}
-          </Button>
+            <div className="flex items-start gap-3">
+              {alert.type === 'error' ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
+              <span>{alert.message}</span>
+            </div>
+          </div>
+        )}
 
-          <p className="text-xs text-center text-muted-foreground">
-            Esta invitación expira el{' '}
-            {inviteData?.expiresAt
-              ? new Date(inviteData.expiresAt).toLocaleDateString('es-MX', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : 'N/A'}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+        {busy === 'loading' && (
+          <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-8 text-center text-slate-300">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-amber-300" />
+            <p className="mt-4">Sincronizando tu invitación con el entorno seguro.</p>
+          </div>
+        )}
+
+        {!busy && inviteData && (
+          <>
+            <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
+              <div className="flex items-center gap-3 text-amber-300">
+                <Sparkles className="h-4 w-4" />
+                <p className="text-xs uppercase tracking-[0.28em]">Access profile</p>
+              </div>
+              <div className="mt-4 space-y-3 text-sm text-slate-300">
+                <p><span className="text-white/45">Correo:</span> {inviteData.email}</p>
+                <p><span className="text-white/45">Código:</span> <span className="font-mono tracking-[0.22em] text-amber-300">{inviteData.code}</span></p>
+                <p><span className="text-white/45">Entorno:</span> {inviteData.empresa?.nombre || 'ATLAS GSE'}</p>
+                <p><span className="text-white/45">Rol:</span> {inviteData.rol}</p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={handleGoogleActivation}
+              disabled={busy !== null}
+              className="h-14 w-full rounded-2xl border border-white/10 bg-white text-slate-950 hover:bg-white/90"
+            >
+              {busy === 'google' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleMark />}
+              <span className="ml-3">Vincular con Google</span>
+            </Button>
+
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-[#0c1018] px-4 text-[11px] uppercase tracking-[0.28em] text-white/35">o activar con contraseña</span>
+              </div>
+            </div>
+
+            <form className="space-y-4" onSubmit={handlePasswordActivation}>
+              <Input
+                value={form.name}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                className="h-14 rounded-2xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/25"
+                placeholder="Nombre completo"
+              />
+              <Input
+                value={form.username}
+                onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
+                className="h-14 rounded-2xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/25"
+                placeholder="Usuario corporativo opcional"
+              />
+              <Input
+                type="password"
+                value={form.password}
+                onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+                className="h-14 rounded-2xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/25"
+                placeholder="Contraseña robusta"
+              />
+              <Button type="submit" disabled={busy !== null} className="h-14 w-full rounded-2xl btn-gold text-base">
+                {busy === 'activate' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Shield className="mr-2 h-4 w-4" />}
+                Activar acceso
+              </Button>
+            </form>
+          </>
+        )}
+      </div>
+    </AtlasAuthShell>
   )
 }

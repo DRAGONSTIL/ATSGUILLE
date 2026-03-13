@@ -1,30 +1,59 @@
-// ATLAS GSE - API de Invitaciones
-
+import { InvitationStatus } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { generateInviteToken } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { safeErrorResponse, requireRole, requireSession, requireTenantScope } from '@/lib/api-security'
+import { generateInvitationCode, generateInviteToken, buildAbsoluteUrl, roleLabel } from '@/lib/auth-helpers'
 import { InvitacionCreateSchema } from '@/lib/validations'
-import { checkRateLimitAsync, getRateLimitIdentifier } from '@/lib/rate-limit'
 import { emailInvitacion } from '@/lib/email'
+import { checkRateLimitAsync, getRateLimitIdentifier } from '@/lib/rate-limit'
 
-// GET - Listar invitaciones pendientes
+async function sendInvitationEmail(invitationId: string) {
+  const invitation = await db.invitacion.findUnique({
+    where: { id: invitationId },
+    include: {
+      empresa: { select: { nombre: true } },
+      invitadoPor: { select: { name: true } },
+    },
+  })
+
+  if (!invitation) {
+    throw new Error('INVITATION_NOT_FOUND')
+  }
+
+  await emailInvitacion(invitation.email, {
+    invitadoPor: invitation.invitadoPor?.name || 'Administración de ATLAS GSE',
+    empresaNombre: invitation.empresa?.nombre || 'ATLAS GSE',
+    rol: roleLabel(invitation.rol),
+    enlace: buildAbsoluteUrl(`/invite/${invitation.token}`),
+    codigoInvitacion: invitation.code,
+    emailInvitado: invitation.email,
+  })
+
+  await db.invitacion.update({
+    where: { id: invitationId },
+    data: {
+      sentAt: invitation.sentAt ?? new Date(),
+      lastSentAt: new Date(),
+    },
+  })
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    const { user } = await requireSession()
+    requireRole(user, ['ADMIN', 'GERENTE'])
+
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status') as InvitationStatus | null
+    const where: Record<string, unknown> = {}
+
+    if (user.rol === 'GERENTE') {
+      requireTenantScope(user, { empresaId: user.empresaId })
+      where.empresaId = user.empresaId
     }
 
-    let where: any = { usada: false, expiresAt: { gt: new Date() } }
-
-    if (session.user.rol === 'ADMIN') {
-      // Ve todas
-    } else if (session.user.rol === 'GERENTE') {
-      where.empresaId = session.user.empresaId
-    } else {
-      return NextResponse.json({ error: 'No tienes permiso para ver invitaciones' }, { status: 403 })
+    if (status) {
+      where.status = status
     }
 
     const invitaciones = await db.invitacion.findMany({
@@ -38,90 +67,64 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ invitaciones })
   } catch (error) {
-    console.error('Error obteniendo invitaciones:', error)
-    return NextResponse.json(
-      { error: 'Error al obtener invitaciones', details: String(error) },
-      { status: 500 }
-    )
+    return safeErrorResponse(error, request)
   }
 }
 
-// POST - Crear invitación
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
+    const { user } = await requireSession()
+    requireRole(user, ['ADMIN', 'GERENTE'])
 
-    // Solo ADMIN y GERENTE pueden invitar
-    if (session.user.rol === 'RECLUTADOR') {
-      return NextResponse.json({ error: 'No tienes permiso para enviar invitaciones' }, { status: 403 })
-    }
-
-    // Rate limiting
-    const rateLimitResult = await checkRateLimitAsync(
-      getRateLimitIdentifier(request, session.user.id),
-      'auth'
-    )
+    const rateLimitResult = await checkRateLimitAsync(getRateLimitIdentifier(request, user.id, user.empresaId ?? undefined), 'auth')
     if (!rateLimitResult.success) {
-      return NextResponse.json(
-        { error: rateLimitResult.error },
-        { status: 429, headers: rateLimitResult.headers }
-      )
+      return NextResponse.json({ error: rateLimitResult.error }, { status: 429, headers: rateLimitResult.headers })
     }
 
-    const body = await request.json()
-    const parsedData = InvitacionCreateSchema.safeParse(body)
+    const payload = InvitacionCreateSchema.parse(await request.json())
+    const normalizedEmail = payload.email.trim().toLowerCase()
 
-    if (!parsedData.success) {
-      return NextResponse.json(
-        { error: 'Datos inválidos', details: parsedData.error.issues },
-        { status: 400 }
-      )
-    }
-
-    const data = parsedData.data
-
-    // Verificar que no existe usuario con ese email
     const existingUser = await db.user.findUnique({
-      where: { email: data.email },
+      where: { email: normalizedEmail },
+      select: { id: true, status: true, activo: true },
     })
 
-    if (existingUser) {
-      return NextResponse.json({ error: 'Ya existe un usuario con ese email' }, { status: 400 })
+    if (existingUser?.activo && existingUser.status === 'ACTIVE') {
+      return NextResponse.json({ error: 'El correo ya cuenta con acceso activo.' }, { status: 400 })
     }
 
-    // Determinar empresaId
-    let empresaId = data.empresaId
-    if (session.user.rol === 'GERENTE') {
-      empresaId = session.user.empresaId ?? undefined
+    const tenantEmpresaId = user.rol === 'GERENTE' ? user.empresaId : payload.empresaId
+    requireTenantScope(user, { empresaId: tenantEmpresaId })
+
+    if (!tenantEmpresaId) {
+      return NextResponse.json({ error: 'Debes seleccionar una empresa válida para la invitación.' }, { status: 400 })
     }
 
-    // Si no hay empresaId y es ADMIN, error
-    if (!empresaId) {
-      return NextResponse.json(
-        { error: 'Debes seleccionar una empresa para la invitación' },
-        { status: 400 }
-      )
-    }
+    await db.invitacion.updateMany({
+      where: {
+        email: normalizedEmail,
+        status: InvitationStatus.PENDING,
+      },
+      data: {
+        status: InvitationStatus.REVOKED,
+        revokedAt: new Date(),
+      },
+    })
 
-    // Generar token y fecha de expiración
-    const token = generateInviteToken()
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7) // 7 días
+    const expiresAt = new Date(Date.now() + payload.expiresInDays * 24 * 60 * 60 * 1000)
 
-    // Crear invitación
     const invitacion = await db.invitacion.create({
       data: {
-        email: data.email,
-        rol: data.rol,
-        empresaId: empresaId,
-        equipoId: data.equipoId || null,
-        mensaje: data.mensaje,
-        token,
+        email: normalizedEmail,
+        rol: payload.rol,
+        empresaId: tenantEmpresaId,
+        equipoId: payload.equipoId || null,
+        mensaje: payload.mensaje?.trim() || null,
+        token: generateInviteToken(),
+        code: generateInvitationCode(),
         expiresAt,
-        invitadoPorId: session.user.id,
+        status: InvitationStatus.PENDING,
+        invitadoPorId: user.id,
       },
       include: {
         empresa: { select: { id: true, nombre: true } },
@@ -129,73 +132,116 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Enviar email de invitación
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-    const inviteUrl = `${baseUrl}/invite/${token}`
-
-    await emailInvitacion(data.email, {
-      invitadoPor: session.user.name || 'Un administrador',
-      empresaNombre: invitacion.empresa?.nombre || 'ATLAS GSE',
-      rol: data.rol,
-      enlace: inviteUrl,
-    })
-
-    return NextResponse.json({
-      message: 'Invitación enviada correctamente',
-      invitacion: {
-        id: invitacion.id,
-        email: invitacion.email,
-        rol: invitacion.rol,
-        expiresAt: invitacion.expiresAt,
+    await db.user.upsert({
+      where: { email: normalizedEmail },
+      create: {
+        email: normalizedEmail,
+        status: 'INVITED',
+        activo: true,
+        rol: payload.rol,
+        empresaId: tenantEmpresaId,
+        equipoId: payload.equipoId || null,
+        invitedById: user.id,
+      },
+      update: {
+        status: 'INVITED',
+        activo: true,
+        rol: payload.rol,
+        empresaId: tenantEmpresaId,
+        equipoId: payload.equipoId || null,
+        invitedById: user.id,
       },
     })
+
+    await sendInvitationEmail(invitacion.id)
+
+    return NextResponse.json({
+      message: 'Invitación enviada correctamente.',
+      invitacion,
+    })
   } catch (error) {
-    console.error('Error creando invitación:', error)
-    return NextResponse.json(
-      { error: 'Error al crear invitación', details: String(error) },
-      { status: 500 }
-    )
+    return safeErrorResponse(error, request)
   }
 }
 
-// DELETE - Cancelar invitación
+export async function PUT(request: NextRequest) {
+  try {
+    const { user } = await requireSession()
+    requireRole(user, ['ADMIN', 'GERENTE'])
+
+    const body = await request.json()
+    const invitationId = String(body.id || '')
+    const action = String(body.action || '')
+
+    if (!invitationId || !['resend', 'revoke'].includes(action)) {
+      return NextResponse.json({ error: 'Solicitud de invitación inválida.' }, { status: 400 })
+    }
+
+    const invitation = await db.invitacion.findUnique({ where: { id: invitationId } })
+
+    if (!invitation) {
+      return NextResponse.json({ error: 'Invitación no encontrada.' }, { status: 404 })
+    }
+
+    if (user.rol === 'GERENTE') {
+      requireTenantScope(user, { empresaId: invitation.empresaId })
+    }
+
+    if (action === 'revoke') {
+      const updated = await db.invitacion.update({
+        where: { id: invitationId },
+        data: {
+          status: InvitationStatus.REVOKED,
+          revokedAt: new Date(),
+        },
+      })
+
+      return NextResponse.json({ invitation: updated })
+    }
+
+    if (invitation.status !== InvitationStatus.PENDING) {
+      return NextResponse.json({ error: 'Solo es posible reenviar invitaciones pendientes.' }, { status: 400 })
+    }
+
+    await sendInvitationEmail(invitation.id)
+
+    return NextResponse.json({ message: 'Invitación reenviada correctamente.' })
+  } catch (error) {
+    return safeErrorResponse(error, request)
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
+    const { user } = await requireSession()
+    requireRole(user, ['ADMIN', 'GERENTE'])
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json({ error: 'ID de invitación requerido' }, { status: 400 })
+      return NextResponse.json({ error: 'ID de invitación requerido.' }, { status: 400 })
     }
 
-    const invitacion = await db.invitacion.findUnique({
+    const invitation = await db.invitacion.findUnique({ where: { id } })
+    if (!invitation) {
+      return NextResponse.json({ error: 'Invitación no encontrada.' }, { status: 404 })
+    }
+
+    if (user.rol === 'GERENTE') {
+      requireTenantScope(user, { empresaId: invitation.empresaId })
+    }
+
+    await db.invitacion.update({
       where: { id },
+      data: {
+        status: InvitationStatus.REVOKED,
+        revokedAt: new Date(),
+      },
     })
 
-    if (!invitacion) {
-      return NextResponse.json({ error: 'Invitación no encontrada' }, { status: 404 })
-    }
-
-    // Verificar permisos
-    if (session.user.rol === 'GERENTE' && invitacion.empresaId !== session.user.empresaId) {
-      return NextResponse.json({ error: 'No tienes permiso para cancelar esta invitación' }, { status: 403 })
-    }
-
-    await db.invitacion.delete({
-      where: { id },
-    })
-
-    return NextResponse.json({ message: 'Invitación cancelada correctamente' })
+    return NextResponse.json({ message: 'Invitación revocada.' })
   } catch (error) {
-    console.error('Error cancelando invitación:', error)
-    return NextResponse.json(
-      { error: 'Error al cancelar invitación', details: String(error) },
-      { status: 500 }
-    )
+    return safeErrorResponse(error, request)
   }
 }
